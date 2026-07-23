@@ -1,14 +1,20 @@
 {
   "name": "@arcade-cabinet/input-joystick",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map. Extracted from otterly-chaotic's FloatingJoystick.",
   "type": "module",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "publishConfig": {
-    "access": "restricted"
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md",
+    "README.md"
   ],
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
@@ -23,30 +29,38 @@
   },
   "sideEffects": false,
   "scripts": {
-    "build": "pnpm run build:esm && pnpm run build:cjs && node scripts/fixup-cjs.mjs",
+    "clean": "node scripts/clean.mjs",
+    "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs",
     "build:esm": "tsc -p tsconfig.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:cjs": "node scripts/build-cjs.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run test:jsdom && pnpm run test:browser",
     "test:jsdom": "vitest run --config vitest.config.ts",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "smoke:package": "node scripts/verify-package-boundaries.mjs",
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:package",
+    "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run verify"
   },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.0.7",
-    "@types/react-dom": "^19.0.3",
-    "@vitejs/plugin-react": "^5.0.4",
-    "@vitest/browser": "^4.1.4",
-    "@vitest/browser-playwright": "^4.1.4",
-    "jsdom": "^27.0.0",
-    "playwright": "^1.59.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "typescript": "~5.9.3",
-    "vitest": "^4.1.4"
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.4",
+    "@vitest/browser": "4.1.10",
+    "@vitest/browser-playwright": "4.1.10",
+    "esbuild": "0.28.1",
+    "jsdom": "29.1.1",
+    "playwright": "1.61.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
   }
 }
