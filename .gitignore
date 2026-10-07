@@ -3,3 +3,7 @@ dist/
 coverage/
 *.tsbuildinfo
 *.tgz
+.DS_Store
+docs/dist/
+tests/__screenshots__/
+.vitest-attachments/

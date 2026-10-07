@@ -12,14 +12,13 @@ export interface FloatingJoystickProps {
   radius?: number;
   /** 0-1 fraction of radius, default 0.12 */
   deadZone?: number;
-  /** CSS color, default "#38bdf8" — explicit prop only, never read from a
-   * host CSS custom property (fixes the legacy atoms.tsx coupling bug). */
+  /** Hex color, default "#38bdf8". Explicit prop only, never read from a
+   * host CSS custom property. */
   accent?: string;
   /** default false — touch-only unless explicitly opted in */
   allowMouse?: boolean;
-  /** CSS selector used to scope the joystick's hit-test host, generalizing
-   * the legacy hardcoded '[data-testid="game-viewport"]' lookup so
-   * non-arcade-cabinet consumers can scope it to their own viewport. */
+  /** CSS selector for the closest ancestor used as the hit-test host.
+   * Default '[data-testid="game-viewport"]'; falls back to the parent element. */
   hostSelector?: string;
 }
 
@@ -71,10 +70,9 @@ export function FloatingJoystick({
       return undefined;
     }
 
-    const readHost = () =>
-      scopeRef.current?.closest<HTMLElement>(hostSelector) ??
-      scopeRef.current?.parentElement ??
-      null;
+    // Effects run after commit, so the wrapper is always mounted here.
+    const scope = scopeRef.current as HTMLDivElement;
+    const readHost = () => scope.closest<HTMLElement>(hostSelector) ?? scope.parentElement;
 
     const isInsideHost = (event: PointerEvent) => {
       const host = readHost();

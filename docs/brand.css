@@ -1,0 +1,16 @@
+:root {
+  --sourcey-primary: #1c3a52;
+  --sourcey-primary-light: #377eb7;
+  --sourcey-primary-dark: #0d1b26;
+  --joystick-accent: #38bdf8;
+}
+
+/* The logo's sky-blue ring and knob carry into the otherwise deliberately
+ * quiet documentation surface. */
+header img {
+  border-radius: 0.35rem;
+}
+
+a:hover {
+  color: var(--joystick-accent);
+}

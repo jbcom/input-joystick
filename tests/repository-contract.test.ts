@@ -1,34 +1,46 @@
 // @vitest-environment node
 // The package's own repository is its only home: these assertions keep the manifest, the toolchain
 // and the publish path pointing at it, so a copy-paste from a host repo cannot drift back in.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "..");
 const read = (file: string) => readFileSync(path.join(root, file), "utf8");
 const manifest = JSON.parse(read("package.json")) as {
+  name: string;
+  version: string;
+  license: string;
   repository: { type: string; url: string; directory?: string };
   bugs: { url: string };
   packageManager: string;
   engines: Record<string, string>;
+  publishConfig: Record<string, unknown>;
   scripts: Record<string, string>;
   devDependencies: Record<string, string>;
 };
 
 describe("repository contract", () => {
-  it("points at arcade-cabinet/input-joystick and builds on the fleet toolchain", () => {
+  it("is the unscoped open-source package on github.com/jbcom and builds on the current toolchain", () => {
+    expect(manifest.name).toBe("input-joystick");
+    expect(manifest.license).toBe("MIT");
     expect(manifest.repository).toEqual({
       type: "git",
-      url: "https://github.com/jbcom/input-joystick.git",
+      url: "git+https://github.com/jbcom/input-joystick.git",
     });
-    expect(manifest.bugs.url).toBe(
-      "https://github.com/jbcom/input-joystick/issues"
-    );
-    expect(read(".node-version").trim()).toBe("26");
+    expect(manifest.bugs.url).toBe("https://github.com/jbcom/input-joystick/issues");
+    expect(manifest.publishConfig).toEqual({ access: "public", provenance: true });
+    expect(read(".nvmrc").trim()).toBe("26");
     expect(manifest.packageManager).toMatch(/^pnpm@12\.\d+\.\d+$/);
     expect(manifest.engines).toEqual({ node: ">=24" });
     expect(manifest.devDependencies["@types/node"]).toMatch(/^\^?24\./);
+  });
+
+  it("resolves everything from the public npm registry", () => {
+    expect(read(".npmrc").trim().split("\n")).toEqual([
+      "registry=https://registry.npmjs.org/",
+      "provenance=true",
+    ]);
   });
 
   it("carries no workspace wiring or host-repo paths", () => {
@@ -47,46 +59,44 @@ describe("repository contract", () => {
     }
   });
 
-  it("verifies everything in CI, including the packed consumer", () => {
+  it("verifies lint, docs, types, coverage, the build, package metadata and the packed consumer", () => {
     expect(manifest.scripts.verify).toBe(
-      "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:consumer"
+      "pnpm run lint && pnpm run lint:docs && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run package:check && pnpm run smoke:consumer"
     );
-    const ci = read(".gitea/workflows/ci.yml");
+    const ci = read(".github/workflows/ci.yml");
     expect(ci).toContain("run: pnpm verify");
     // The FloatingJoystick tests need real Chromium; verify cannot pass on a runner without it.
-    expect(ci).toMatch(/playwright install chromium[\s\S]+?run: pnpm verify/);
+    expect(ci).toMatch(/playwright install --with-deps chromium\s+- run: pnpm verify/);
   });
 
-  it("publishes byte-identical packs with the package-only secret and proves them anonymously", () => {
-    const release = read(".gitea/workflows/release.yml");
-    expect(release).toContain('PACKAGE: "@arcade-cabinet/input-joystick"');
-    // Without these labels release-please cannot find a merged release PR, so it never tags: the
-    // bootstrap must run, and run first.
-    expect(release).toMatch(
-      /run: node scripts\/ensure-release-labels\.mjs[\s\S]+?joaquinjsb\/gitea-release-please-action/
-    );
-    const labels = read("scripts/ensure-release-labels.mjs");
-    expect(labels).toContain('name: "autorelease: pending"');
-    expect(labels).toContain('name: "autorelease: tagged"');
-    expect(release).toMatch(
-      /git checkout --detach "refs\/tags\/[^"]+"[\s\S]+?playwright install chromium[\s\S]+?pnpm verify/
-    );
-    expect(release).toMatch(/cmp "\$\{RUNNER_TEMP\}"\/a\/\*\.tgz "\$\{RUNNER_TEMP\}"\/b\/\*\.tgz/);
-    expect(release).toContain("secrets.NPM_TOKEN");
-    expect(release).toMatch(
-      /INPUT_JOYSTICK_CONSUMER_SOURCE="\$\{PACKAGE\}@\$\{\{ steps\.target\.outputs\.version \}\}" pnpm smoke:consumer/
-    );
+  it("publishes from cd.yml by OIDC trusted publishing, with no stored registry token", () => {
+    expect(existsSync(path.join(root, ".gitea"))).toBe(false);
+    const cd = read(".github/workflows/cd.yml");
+    expect(cd).toContain("id-token: write");
+    expect(cd).toContain("registry-url: https://registry.npmjs.org");
+    expect(cd).toMatch(/playwright install --with-deps chromium[\s\S]+?pnpm verify/);
+    expect(cd).toContain("npm publish --access public --provenance");
+    expect(cd).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/);
   });
 
-  it("keeps release-please bootstrapped on this repository's own history", () => {
+  it("keeps release-please on the single root package at the manifest version", () => {
     const config = JSON.parse(read("release-please-config.json")) as {
-      "bootstrap-sha": string;
-      packages: Record<string, { "package-name": string }>;
+      packages: Record<
+        string,
+        {
+          "package-name": string;
+          "include-component-in-tag": boolean;
+          "bump-minor-pre-major": boolean;
+        }
+      >;
     };
-    expect(config["bootstrap-sha"]).toMatch(/^[0-9a-f]{40}$/);
-    expect(config.packages["."]["package-name"]).toBe("input-joystick");
+    expect(config.packages["."]).toMatchObject({
+      "package-name": "input-joystick",
+      "include-component-in-tag": false,
+      "bump-minor-pre-major": true,
+    });
     expect(JSON.parse(read(".release-please-manifest.json"))).toEqual({
-      ".": (JSON.parse(read("package.json")) as { version: string }).version,
+      ".": manifest.version,
     });
   });
 });

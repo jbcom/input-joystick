@@ -22,11 +22,9 @@ export interface RawOffset {
  * wobble). Offsets beyond `radius` clamp to a unit-length vector. Between
  * the deadzone and the radius, magnitude scales linearly from 0 to 1.
  *
- * Backfilled from welcoming-wilds-island-adventure's
- * `normalizeJoystickInput` (app/components/hud/VirtualJoystick.tsx) so the
- * deadzone/clamp curve is unit-testable without simulating DOM pointer
- * events, matching FloatingJoystick's own internal `updateVector` math
- * byte-for-byte.
+ * Kept separate from the component so the deadzone/clamp curve is
+ * unit-testable without simulating DOM pointer events; FloatingJoystick calls
+ * it for every vector it emits.
  */
 export function normalizeJoystick(
   raw: RawOffset,

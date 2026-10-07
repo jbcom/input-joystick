@@ -6,11 +6,7 @@
  *   - intermediate push -> proportional speed
  *   - max push -> unit vector (capped)
  *
- * Adapted from welcoming-wilds-island-adventure's
- * tests/contract/joystick-deadzone.test.ts (normalizeJoystickInput), which
- * pins the same curve against a knobLimit-in-px design. This version is
- * re-pointed at FloatingJoystick's own radius/deadZone-as-fraction API
- * (deadZone is a 0-1 fraction of radius, matching FloatingJoystickProps).
+ * deadZone is a 0-1 fraction of radius, matching FloatingJoystickProps.
  */
 
 import { describe, expect, it } from "vitest";
@@ -74,5 +70,16 @@ describe("normalizeJoystick: proportional + cap", () => {
   it("angle reflects the direction of the raw offset", () => {
     const out = normalizeJoystick({ x: 0, y: RADIUS }, RADIUS, DEAD_ZONE);
     expect(out.angle).toBeCloseTo(Math.PI / 2, 5);
+  });
+});
+
+describe("normalizeJoystick with a degenerate radius", () => {
+  it("reports zero magnitude for a zero or negative radius", () => {
+    for (const radius of [0, -10]) {
+      const out = normalizeJoystick({ x: 30, y: 0 }, radius, DEAD_ZONE);
+      expect(out.magnitude).toBe(0);
+      expect(out.x).toBe(0);
+      expect(out.y).toBe(0);
+    }
   });
 });
