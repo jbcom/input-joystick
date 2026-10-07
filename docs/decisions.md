@@ -63,8 +63,6 @@ declaration is mirrored to a `.d.cts` with `.cjs` specifiers.
 by arethetypeswrong as masquerading as ESM and gives CommonJS consumers the wrong module shape. The
 mirror keeps one source of truth for the types and passes `attw`.
 
-## No `prepublishOnly`
-
 ## Repository protection script
 
 **Decision.** `scripts/apply-branch-ruleset.mjs` carries the canonical OSS ruleset script, with
@@ -73,7 +71,7 @@ It is excluded from Biome so its canonical formatting is preserved. Run it only 
 authorized to change repository protection. It requires merge commits, resolved review threads and
 green checks, protects release tags, and adds no Copilot review or Code Quality rule.
 
-## Publishing verification
+## No `prepublishOnly`
 
 **Decision.** Publishing is the `publish` job in `cd.yml`, which verifies at the release tag and runs
 `npm publish` by OIDC trusted publishing. `prepack` still builds, so a bare `npm pack` can never ship
