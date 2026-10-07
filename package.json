@@ -25,7 +25,7 @@
     "input"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "packageManager": "pnpm@12.10.1",
   "publishConfig": {

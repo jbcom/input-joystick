@@ -36,13 +36,15 @@ sequence without reusing a number that exists elsewhere. Release Please owns ver
 **Why.** Changing a default is a breaking change, and existing consumers rely on it. The prop and the
 parent-element fallback make it fully overridable; the selector is documented rather than hidden.
 
-## Toolchain: Node 26 and pnpm 12 to build, Node 24 as the floor to run
+## Toolchain: Node 26 by default, all maintained Node lines supported
 
-**Decision.** `.nvmrc` is 26 and `packageManager` is pnpm 12; `engines.node` is `>=24` with no
-ceiling, and `@types/node` stays on 24.
+**Decision.** `.nvmrc` is 26 and `packageManager` is pnpm 12; `engines.node` is `>=22` with no
+ceiling, and `@types/node` stays on 24. Node.js 22, 24 and 26 are supported and tested in CI.
 
 **Why.** The package is built where the toolchain is moving, but a library must not reach for an API
-its oldest supported consumer lacks. CI runs Node 24 and 26.
+its oldest supported consumer lacks. Support follows maintained release lines, rather than claiming
+every historical patch supports every development tool. Scripts and hooks never require an exact
+Node patch version. All shipped entry points share the same Node support range.
 
 ## Chromium is part of `pnpm verify`
 

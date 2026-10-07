@@ -7,7 +7,7 @@ obvious from reading the code alone.
 
 - Package manager: pnpm, pinned in `package.json#packageManager`. Use `mise install` (reads
   `mise.toml`) for a matching local Node and pnpm toolchain, or `corepack enable` if mise isn't
-  available. Node 26 builds the package (`.nvmrc`); Node 24 is the floor it runs on.
+  available. Node 26 is the default toolchain (`.nvmrc`); Node.js 22, 24 and 26 are supported.
 - This is a pnpm workspace with two members: `.` (the published library) and `docs/` (the private
   Sourcey documentation site). Root-level scripts operate on the library; `pnpm docs:*` scripts
   delegate to `docs/` via `pnpm --filter input-joystick-docs`. Sourcey emits `docs/dist/`, including

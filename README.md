@@ -84,7 +84,7 @@ the design is in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 | | Supported |
 | --- | --- |
 | React and React DOM | 18 or later (tested on 19.2) |
-| Node.js (building and SSR import) | 24 or later (CI runs 24 and 26) |
+| Node.js (building and SSR import) | 22, 24 and 26 (maintained lines; engines `>=22`) |
 | Browsers | Any with Pointer Events: current Chrome, Safari and Firefox on desktop and mobile |
 | Module formats | ESM and CommonJS, each with matching type declarations |
 

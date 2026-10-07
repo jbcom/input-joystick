@@ -32,7 +32,7 @@ describe("repository contract", () => {
     expect(manifest.publishConfig).toEqual({ access: "public", provenance: true });
     expect(read(".nvmrc").trim()).toBe("26");
     expect(manifest.packageManager).toMatch(/^pnpm@12\.\d+\.\d+$/);
-    expect(manifest.engines).toEqual({ node: ">=24" });
+    expect(manifest.engines).toEqual({ node: ">=22" });
     expect(manifest.devDependencies["@types/node"]).toMatch(/^\^?24\./);
   });
 
@@ -65,6 +65,9 @@ describe("repository contract", () => {
     );
     const ci = read(".github/workflows/ci.yml");
     expect(ci).toContain("run: pnpm verify");
+    for (const major of [22, 24, 26]) {
+      expect(ci).toContain(`node: "${major}"`);
+    }
     // The FloatingJoystick tests need real Chromium; verify cannot pass on a runner without it.
     expect(ci).toMatch(/playwright install --with-deps chromium\s+- run: pnpm verify/);
   });
