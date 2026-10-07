@@ -5,8 +5,7 @@ export interface KeyboardVector {
   y: number;
 }
 
-/** Default WASD + arrow-key mapping, matching welcoming-wilds-island-adventure's
- * VirtualJoystick keyboard fallback. */
+/** Default WASD + arrow-key mapping. */
 const DEFAULT_KEYS: Record<string, KeyboardVector> = {
   ArrowUp: { x: 0, y: -1 },
   w: { x: 0, y: -1 },
@@ -31,12 +30,10 @@ export interface KeyboardVectorMapOptions {
  * keyboard+joystick parity (desktop testing, accessibility, hybrid input)
  * can compose it without the base FloatingJoystick component growing scope.
  *
- * Backfilled from welcoming-wilds-island-adventure's VirtualJoystick.tsx
- * WASD/arrow keydown/keyup handler (lines 95-126), generalized to accept a
- * caller-supplied key map instead of a hardcoded WASD+arrows table, and to
- * emit a plain {x,y} vector (not the full JoystickVector — callers can pass
- * it straight into the same onMove callback FloatingJoystick's onChange
- * feeds, since both agree on the {x,y} shape).
+ * Accepts a caller-supplied key map (WASD and arrows by default) and emits a
+ * plain {x,y} vector rather than the full JoystickVector, so callers can pass
+ * it straight into the same handler FloatingJoystick's onChange feeds, since
+ * both agree on the {x,y} shape.
  */
 export function useKeyboardVectorMap({
   onChange,
