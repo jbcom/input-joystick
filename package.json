@@ -1,6 +1,6 @@
 {
   "name": "@arcade-cabinet/input-joystick",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map. Extracted from otterly-chaotic's FloatingJoystick.",
   "type": "module",
   "license": "UNLICENSED",
