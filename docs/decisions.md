@@ -36,13 +36,15 @@ sequence without reusing a number that exists elsewhere. Release Please owns ver
 **Why.** Changing a default is a breaking change, and existing consumers rely on it. The prop and the
 parent-element fallback make it fully overridable; the selector is documented rather than hidden.
 
-## Toolchain: Node 26 and pnpm 12 to build, Node 24 as the floor to run
+## Toolchain: Node 26 by default, all maintained Node lines supported
 
-**Decision.** `.nvmrc` is 26 and `packageManager` is pnpm 12; `engines.node` is `>=24` with no
-ceiling, and `@types/node` stays on 24.
+**Decision.** `.nvmrc` is 26 and `packageManager` is pnpm 12; `engines.node` is `>=22` with no
+ceiling, and `@types/node` stays on 24. Node.js 22, 24 and 26 are supported and tested in CI.
 
 **Why.** The package is built where the toolchain is moving, but a library must not reach for an API
-its oldest supported consumer lacks. CI runs Node 24 and 26.
+its oldest supported consumer lacks. Support follows maintained release lines, rather than claiming
+every historical patch supports every development tool. Scripts and hooks never require an exact
+Node patch version. All shipped entry points share the same Node support range.
 
 ## Chromium is part of `pnpm verify`
 
@@ -60,6 +62,14 @@ declaration is mirrored to a `.d.cts` with `.cjs` specifiers.
 **Why.** A `require` condition pointing at a `.d.ts` inside a `"type": "module"` package is reported
 by arethetypeswrong as masquerading as ESM and gives CommonJS consumers the wrong module shape. The
 mirror keeps one source of truth for the types and passes `attw`.
+
+## Repository protection script
+
+**Decision.** `scripts/apply-branch-ruleset.mjs` carries the canonical OSS ruleset script, with
+defaults for this repository and `CI / gate;title;Repository Policy / gate;Dependency Review / gate`.
+It is excluded from Biome so its canonical formatting is preserved. Run it only when explicitly
+authorized to change repository protection. It requires merge commits, resolved review threads and
+green checks, protects release tags, and adds no Copilot review or Code Quality rule.
 
 ## No `prepublishOnly`
 
