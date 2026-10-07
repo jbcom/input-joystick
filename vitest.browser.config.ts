@@ -4,8 +4,8 @@ import { defineConfig } from "vitest/config";
 
 // Real-Chromium test for FloatingJoystick.tsx: exercises real pointer
 // capture / pointerId claiming semantics (multi-touch, isPrimary), which
-// jsdom cannot reliably simulate. Matches otterly-chaotic's own
-// vitest.browser.config.ts pattern (real-Chromium via @vitest/browser-playwright).
+// jsdom cannot reliably simulate. Real Chromium comes from @vitest/browser-playwright;
+// install it with `pnpm exec playwright install chromium`.
 export default defineConfig({
   plugins: [react()],
   test: {

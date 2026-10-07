@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// jsdom tests for pure logic + synthetic-KeyboardEvent-driven hooks.
+// jsdom tests for pure logic + synthetic-KeyboardEvent-driven hooks, plus the repository contract.
 // FloatingJoystick.test.tsx (real PointerEvent semantics: pointer capture,
 // coalesced isPrimary/pointerId behavior) is NOT included here — jsdom's
 // PointerEvent support can't drive it reliably; see vitest.browser.config.ts.
@@ -10,7 +10,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
-    include: ["tests/normalizeJoystick.test.ts", "tests/useKeyboardVectorMap.test.tsx"],
+    include: [
+      "tests/normalizeJoystick.test.ts",
+      "tests/useKeyboardVectorMap.test.tsx",
+      "tests/repository-contract.test.ts",
+    ],
     passWithNoTests: false,
   },
 });

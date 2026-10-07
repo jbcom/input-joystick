@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { useKeyboardVectorMap, type KeyboardVector } from "../src/useKeyboardVectorMap";
+import { type KeyboardVector, useKeyboardVectorMap } from "../src/useKeyboardVectorMap";
 
 afterEach(() => {
   cleanup();
