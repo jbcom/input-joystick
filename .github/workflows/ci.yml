@@ -16,7 +16,8 @@ concurrency:
 jobs:
   verify:
     name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
-    if: github.event_name != 'pull_request' || !(startsWith(github.event.pull_request.head.ref, 'release-please--') || (github.event.pull_request.user.login == 'dependabot[bot]' && contains(github.event.pull_request.title, 'non-major')))
+    # Run the matrix on generated PRs too: repository protection requires its
+    # named checks, which a skipped matrix job does not emit.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:

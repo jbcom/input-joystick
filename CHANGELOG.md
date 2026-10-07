@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/jbcom/input-joystick/compare/v0.2.1...v0.2.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* support every maintained Node line (22, 24 and 26) ([cf9183a](https://github.com/jbcom/input-joystick/commit/cf9183ae5e5ea710eb54a8a054ff14180efb7752))
+* support maintained Node lines and enforce house CI rules ([ccf87c3](https://github.com/jbcom/input-joystick/commit/ccf87c3b454adffda1d1993a377c91867a0d5b34))
+
 ## [0.2.1](https://github.com/jbcom/input-joystick/compare/v0.2.0...v0.2.1) (2026-10-07)
 
 First release on npmjs, as `input-joystick`. Earlier versions were published as

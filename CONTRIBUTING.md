@@ -15,7 +15,7 @@ pnpm verify   # lint, docs lint, typecheck, coverage, build, package checks, con
 ```
 
 Without mise, use `corepack` so pnpm matches the version pinned in `package.json#packageManager`,
-on any Node release in the `engines.node` range (`>=24`; CI verifies 24 and 26):
+on a maintained Node line in the `engines.node` range (`>=22`; CI verifies Node.js 22, 24 and 26):
 
 ```sh
 corepack enable
