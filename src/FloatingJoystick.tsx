@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { normalizeJoystick, type JoystickVector } from "./normalizeJoystick.js";
+import { type JoystickVector, normalizeJoystick } from "./normalizeJoystick.js";
 
 export type { JoystickVector };
 

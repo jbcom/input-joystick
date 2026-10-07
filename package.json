@@ -4,9 +4,17 @@
   "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map. Extracted from otterly-chaotic's FloatingJoystick.",
   "type": "module",
   "license": "UNLICENSED",
-  "engines": {
-    "node": ">=24 <25"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jbcom/input-joystick.git"
   },
+  "bugs": {
+    "url": "https://github.com/jbcom/input-joystick/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.9.1",
   "publishConfig": {
     "access": "restricted",
     "registry": "https://registry.npmjs.org/"
@@ -33,20 +41,22 @@
     "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "node scripts/build-cjs.mjs",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run test:jsdom && pnpm run test:browser",
     "test:jsdom": "vitest run --config vitest.config.ts",
     "test:browser": "vitest run --config vitest.browser.config.ts",
-    "smoke:package": "node scripts/verify-package-boundaries.mjs",
-    "verify": "pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:package",
-    "prepack": "pnpm run build",
-    "prepublishOnly": "pnpm run verify"
+    "smoke:consumer": "node scripts/consumer-smoke.mjs",
+    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:consumer",
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.13.3",
     "@types/react": "19.2.17",
