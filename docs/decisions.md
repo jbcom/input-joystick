@@ -65,6 +65,16 @@ mirror keeps one source of truth for the types and passes `attw`.
 
 ## No `prepublishOnly`
 
+## Repository protection script
+
+**Decision.** `scripts/apply-branch-ruleset.mjs` carries the canonical OSS ruleset script, with
+defaults for this repository and `CI / gate;title;Repository Policy / gate;Dependency Review / gate`.
+It is excluded from Biome so its canonical formatting is preserved. Run it only when explicitly
+authorized to change repository protection. It requires merge commits, resolved review threads and
+green checks, protects release tags, and adds no Copilot review or Code Quality rule.
+
+## Publishing verification
+
 **Decision.** Publishing is the `publish` job in `cd.yml`, which verifies at the release tag and runs
 `npm publish` by OIDC trusted publishing. `prepack` still builds, so a bare `npm pack` can never ship
 a stale or missing `dist`.
