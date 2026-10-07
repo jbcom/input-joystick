@@ -1,27 +1,25 @@
 #!/usr/bin/env node
-// Built-tarball consumer smoke (fleet package contract): pack the package, install the tarball into a
-// clean scratch consumer next to the React the package was tested against, then load the entry point
-// through both ESM import and CommonJS require and exercise one call per export. Proves the exports
-// map, the .cjs bundle and the files list. With INPUT_JOYSTICK_CONSUMER_SOURCE=
-// @arcade-cabinet/input-joystick@<version> it installs that published version from the registry
-// instead, with no credential in reach (the release workflow's last step).
+// Built-tarball consumer smoke: pack the package, install the tarball into a clean scratch consumer
+// next to the React the package was tested against, then load the entry point through both ESM
+// import and CommonJS require and exercise one call per export. Proves the exports map, the .cjs
+// bundle and the files list. With INPUT_JOYSTICK_CONSUMER_SOURCE=input-joystick@<version> it
+// installs that published version from npmjs instead (the cold-install check after a release).
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REGISTRY = "https://registry.npmjs.org/";
-const NAME = "@arcade-cabinet/input-joystick";
+const NAME = "input-joystick";
 const packageRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const manifest = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8"));
-const scratch = mkdtempSync(path.join(tmpdir(), "arcade-input-joystick-smoke-"));
+const scratch = mkdtempSync(path.join(tmpdir(), "input-joystick-smoke-"));
 const registrySource = process.env.INPUT_JOYSTICK_CONSUMER_SOURCE;
 
 try {
   if (
     registrySource &&
-    !/^@arcade-cabinet\/input-joystick@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(registrySource)
+    !/^input-joystick@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(registrySource)
   ) {
     throw new Error(`INPUT_JOYSTICK_CONSUMER_SOURCE must be an exact ${NAME}@<version> spec`);
   }
@@ -31,6 +29,8 @@ try {
     execFileSync("npm", ["pack", "--pack-destination", scratch], {
       cwd: packageRoot,
       stdio: "inherit",
+      // npm pack runs "prepare"; installing git hooks is irrelevant to a packaging check.
+      env: { ...process.env, SKIP_INSTALL_SIMPLE_GIT_HOOKS: "1" },
     });
     const tarball = readdirSync(scratch).find((file) => file.endsWith(".tgz"));
     if (!tarball) throw new Error("npm pack produced no tarball");
@@ -43,15 +43,13 @@ try {
     path.join(consumer, "package.json"),
     JSON.stringify({ name: "input-joystick-smoke-consumer", private: true, type: "module" })
   );
-  // Anonymous: a user config with the public registry plus the fleet scope and nothing else, an
-  // empty global config, and no inherited npm_config_* or credential-looking variables (pnpm run
-  // exports npm_config_* into scripts), so no token on the machine can authenticate this install.
+  // Anonymous and public-registry only: a user config with npmjs and nothing else, an empty global
+  // config, and no inherited npm_config_* or credential-looking variables (pnpm run exports
+  // npm_config_* into scripts), so no token or scoped registry on the machine can serve or
+  // authenticate this install.
   const userConfig = path.join(scratch, "anonymous.npmrc");
   const globalConfig = path.join(scratch, "empty-global.npmrc");
-  writeFileSync(
-    userConfig,
-    `registry=https://registry.npmjs.org/\n@arcade-cabinet:registry=${REGISTRY}\n`
-  );
+  writeFileSync(userConfig, "registry=https://registry.npmjs.org/\n");
   writeFileSync(globalConfig, "");
   const anonymousEnv = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -76,6 +74,8 @@ try {
     { cwd: consumer, stdio: "inherit", env: anonymousEnv }
   );
 
+  // The component renders to markup on the server (effects do not run), which proves it loads
+  // against the consumer's own React; the pure math and the exports are checked directly.
   const assertion = `
     if (pkg.version !== ${JSON.stringify(expectedVersion)}) throw new Error('version ' + pkg.version)
     for (const name of ['FloatingJoystick', 'normalizeJoystick', 'useKeyboardVectorMap']) {
@@ -87,14 +87,20 @@ try {
     }
     const still = api.normalizeJoystick({ x: 2, y: 2 }, 50, 0.1)
     if (still.magnitude !== 0) throw new Error('deadzone: ' + JSON.stringify(still))
+    const markup = renderToString(createElement(api.FloatingJoystick, { onChange() {} }))
+    if (!markup.includes('data-floating-joystick="true"')) throw new Error('markup: ' + markup)
   `;
   const esm = `
+    import { createElement } from 'react'
+    import { renderToString } from 'react-dom/server'
     import * as api from ${JSON.stringify(NAME)}
     import pkg from ${JSON.stringify(`${NAME}/package.json`)} with { type: 'json' }
     ${assertion}
     console.log('esm ok')
   `;
   const cjs = `
+    const { createElement } = require('react')
+    const { renderToString } = require('react-dom/server')
     const api = require(${JSON.stringify(NAME)})
     const pkg = require(${JSON.stringify(`${NAME}/package.json`)})
     ${assertion}

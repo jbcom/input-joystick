@@ -1,27 +1,43 @@
 {
-  "name": "@arcade-cabinet/input-joystick",
-  "version": "0.2.0",
-  "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map. Extracted from otterly-chaotic's FloatingJoystick.",
+  "name": "input-joystick",
+  "version": "0.2.1",
+  "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map.",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "author": "Jon Bogaty <jon@jonbogaty.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jbcom/input-joystick.git"
+    "url": "git+https://github.com/jbcom/input-joystick.git"
   },
+  "homepage": "https://github.com/jbcom/input-joystick#readme",
   "bugs": {
     "url": "https://github.com/jbcom/input-joystick/issues"
   },
+  "keywords": [
+    "joystick",
+    "virtual-joystick",
+    "touch",
+    "pointer-events",
+    "react",
+    "game-dev",
+    "mobile",
+    "canvas",
+    "input"
+  ],
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@12.9.1",
+  "packageManager": "pnpm@12.10.1",
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://registry.npmjs.org/"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "dist",
     "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE",
     "README.md"
   ],
   "main": "./dist/cjs/index.cjs",
@@ -29,9 +45,14 @@
   "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/esm/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -43,20 +64,30 @@
     "build:cjs": "node scripts/build-cjs.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint:docs": "markdownlint-cli2 README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md AGENTS.md \"docs/**/*.md\" \"!docs/node_modules/**\" \"!docs/dist/**\" .github/PULL_REQUEST_TEMPLATE.md",
+    "typecheck": "tsc -p tsconfig.check.json",
     "test": "pnpm run test:jsdom && pnpm run test:browser",
     "test:jsdom": "vitest run --config vitest.config.ts",
     "test:browser": "vitest run --config vitest.browser.config.ts",
+    "coverage": "vitest run --config vitest.config.ts --coverage && vitest run --config vitest.browser.config.ts --coverage",
+    "package:check": "publint && attw --pack .",
     "smoke:consumer": "node scripts/consumer-smoke.mjs",
-    "verify": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build && pnpm run smoke:consumer",
-    "prepack": "pnpm run build"
+    "docs:dev": "pnpm --filter input-joystick-docs dev",
+    "docs:build": "pnpm --filter input-joystick-docs build",
+    "docs:check": "pnpm --filter input-joystick-docs check",
+    "verify": "pnpm run lint && pnpm run lint:docs && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run package:check && pnpm run smoke:consumer",
+    "prepack": "pnpm run build",
+    "prepare": "simple-git-hooks"
   },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.5.15",
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.13.3",
     "@types/react": "19.2.17",
@@ -64,13 +95,30 @@
     "@vitejs/plugin-react": "6.0.4",
     "@vitest/browser": "4.1.10",
     "@vitest/browser-playwright": "4.1.10",
+    "@vitest/coverage-v8": "4.1.10",
     "esbuild": "0.28.1",
     "jsdom": "29.1.1",
+    "lint-staged": "17.6.0",
+    "markdownlint-cli2": "0.23.3",
     "playwright": "1.61.1",
+    "publint": "0.3.25",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "simple-git-hooks": "2.14.0",
     "typescript": "7.0.2",
     "vite": "8.1.5",
     "vitest": "4.1.10"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged",
+    "commit-msg": "pnpm exec commitlint --edit $1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.md": [
+      "markdownlint-cli2"
+    ]
   }
 }
