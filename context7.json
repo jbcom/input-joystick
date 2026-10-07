@@ -1,0 +1,16 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "input-joystick",
+  "description": "Touch-anywhere floating virtual joystick for React canvas games, a pure deadzone/normalize function, and an opt-in keyboard co-map.",
+  "branch": "main",
+  "folders": ["docs", "src"],
+  "excludeFolders": ["node_modules", "dist", "coverage", "docs/dist", "docs/node_modules"],
+  "excludeFiles": ["CHANGELOG.md"],
+  "rules": [
+    "FloatingJoystick is touch-only unless allowMouse is set, and it claims exactly one pointer at a time.",
+    "Mark any control that must keep its own taps inside the joystick host with data-joystick-ignore.",
+    "normalizeJoystick is pure: offsets inside the deadzone report zero magnitude, offsets beyond the radius clamp to a unit vector.",
+    "The accent prop is explicit; the component never reads a host CSS custom property.",
+    "useKeyboardVectorMap is opt-in and emits a plain {x, y} vector, so it composes with the same handler as FloatingJoystick.onChange."
+  ]
+}

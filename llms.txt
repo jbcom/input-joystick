@@ -1,0 +1,23 @@
+# input-joystick
+
+> A touch-anywhere floating virtual joystick for React canvas games: a component that claims one
+> pointer inside a host element and emits normalized vectors, a pure deadzone/clamp function, and an
+> opt-in WASD/arrow-key co-map. It owns pointer claiming and hit-testing; the game owns what the
+> vector means and how it looks.
+
+## Docs
+
+- [Documentation site](https://jbcom.github.io/input-joystick/): the published, browsable version
+  of everything below.
+- [README](https://github.com/jbcom/input-joystick/blob/main/README.md): install, quick start, API
+  overview, behavior, compatibility.
+- [API reference](https://github.com/jbcom/input-joystick/blob/main/docs/API.md): full signatures,
+  defaults and pointer rules for every export.
+- [Architecture](https://github.com/jbcom/input-joystick/blob/main/docs/ARCHITECTURE.md): module
+  boundaries, invariants, intentional limits.
+- [Decisions](https://github.com/jbcom/input-joystick/blob/main/docs/decisions.md): why the package
+  and repository are shaped the way they are.
+- [AGENTS.md](https://github.com/jbcom/input-joystick/blob/main/AGENTS.md): toolchain, invariants
+  not to violate, and doc/test sync obligations for an autonomous coding agent.
+- [CONTRIBUTING.md](https://github.com/jbcom/input-joystick/blob/main/CONTRIBUTING.md): local setup,
+  the `pnpm verify` gate, commit and release conventions.

@@ -1,11 +1,25 @@
 # Changelog
 
-## [0.2.0](https://github.com/jbcom/input-joystick/compare/v0.1.1...v0.2.0) (2026-10-07)
+## [0.2.1](https://github.com/jbcom/input-joystick/compare/v0.2.0...v0.2.1) (2026-10-07)
 
+First release on npmjs, as `input-joystick`. Earlier versions were published as
+`@arcade-cabinet/input-joystick` to a private registry.
 
 ### Features
 
-* build, test and release @arcade-cabinet/input-joystick from its own repository ([b7662fd](https://github.com/jbcom/input-joystick/commit/b7662fd9a9872378eb29f26bdbccc76082b35326))
+* publish as the open-source, MIT-licensed `input-joystick` from github.com/jbcom/input-joystick
+* ship CommonJS type declarations (`.d.cts`) so `require` consumers resolve the right module shape
+
+### Build
+
+* verify with publint, Are The Types Wrong and a packed-tarball ESM and CommonJS consumer smoke
+* release with Release Please and publish with npm provenance by OIDC trusted publishing
+
+## 0.2.0 - 2026-10-07
+
+### Features
+
+* build, test and release the package from its own repository ([b7643f0](https://github.com/jbcom/input-joystick/commit/b7643f0fa4e55701da6344fdfd349d5248c87517))
 
 ## 0.1.1 - 2026-07-22
 
@@ -17,4 +31,4 @@
 ## 0.1.0 - 2026-07-21
 
 - Extract the touch-anywhere joystick, pure normalization math, and optional
-  keyboard co-map from Otterly Chaotic.
+  keyboard co-map from a game repository.

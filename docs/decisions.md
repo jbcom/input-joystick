@@ -1,53 +1,70 @@
-# Decisions
+---
+title: Decisions
+description: Why the package and its repository are shaped the way they are.
+---
 
-## 2026-10-07: moved out of otterly-chaotic into its own repository
+## 2026-10-07: an open-source, unscoped package on npmjs
 
-**Decision.** `@arcade-cabinet/input-joystick` left `otterly-chaotic/packages/input-joystick`
-for `arcade-cabinet/input-joystick`, with its history (`git filter-repo --subdirectory-filter`).
-otterly-chaotic now installs it from the registry like any other consumer.
+**Decision.** The package publishes as `input-joystick` on npmjs from `github.com/jbcom/input-joystick`
+under the MIT license.
 
-**Why.** The owner: "You shouldn't need other games as dependencies for shared packages."
-Inside the game it could only be released through the game's lockfile and workspace, and a
-second game could not take the joystick without taking a dependency on otterly-chaotic.
+**Why.** Nothing in the package is application-specific: it is a React component, a pure function and
+a hook. The unscoped name was free on npmjs. Publishing it openly means every consumer installs it
+from the public registry with no extra configuration.
 
-## The repository shape is the fleet package shape
+## No overlap with `gesture-audio`
 
-Same as `arcade-cabinet/mobile` and `persistence-save`: `ci.yml` runs `pnpm verify` on every
-push and pull request; `release.yml` runs release-please and a publish job that reconciles the
-manifest version against tags and the registry, packs twice for byte identity and proves the
-published version anonymously. Tags are plain `v<version>`.
+**Decision.** `input-joystick` is a standalone package and is not folded into `gesture-audio`.
 
-Biome uses the style the source was written in (double quotes, semicolons, ES5 trailing commas),
-so the move did not reformat it.
-
-## Toolchain: Node 26 and pnpm 12 to build, Node 24 as the floor to run
-
-Built where the fleet is moving. `engines` is `>=24` with no ceiling (it was `>=24 <25`
-in the game) and `@types/node` stays on 24: a library must not reach for an API its oldest
-supported consumer lacks.
-
-## Chromium is part of `pnpm verify`
-
-`FloatingJoystick` is tested in real Chromium (pointer capture and multi-touch `pointerId`
-claiming that jsdom cannot drive). CI and the release job's verify-at-tag step therefore
-install it with `playwright install chromium --with-deps` before `pnpm verify`; a runner
-without it fails the gate instead of skipping the pointer tests.
-
-## The consumer smoke replaces `verify-package-boundaries`
-
-`scripts/consumer-smoke.mjs` supersedes the in-game boundary script. It reads the version it
-asserts from the package (or from `INPUT_JOYSTICK_CONSUMER_SOURCE` for a published version)
-instead of hard-coding `0.1.1`, installs the same React the package is tested against, installs
-anonymously, and exercises `normalizeJoystick` as well as checking the exports exist.
-
-## No `prepublishOnly`
-
-Publishing is the release workflow's reconcile job, which verifies at the tag and publishes
-the already-packed tarball (lifecycle scripts do not run for a tarball). `prepack` still builds,
-so a bare `npm pack` can never ship a stale or missing `dist`.
+**Why.** `gesture-audio` solves browser audio autoplay unlock: a one-shot `click`, `keydown` or
+`touchstart` listener that starts a Tone.js context, a bus graph, a sprite resolver and a preferences
+bridge. It consumes touch events only as an unlock signal and has no pointer tracking, vector output,
+hit-testing or deadzone math. The two share no API and no dependency, and folding a React component
+into an audio package would put an unrelated peer dependency on every audio consumer.
 
 ## Versioning continues from the registry
 
-0.1.0 and 0.1.1 were published from the game repository. The manifest starts at 0.1.1 with
-`bootstrap-sha` on the last imported commit, so release-please computes the next version from
-this repository's own commits.
+**Decision.** The first npmjs version is 0.2.1.
+
+**Why.** 0.1.0, 0.1.1 and 0.2.0 were published to the private registry, so 0.2.1 continues the
+sequence without reusing a number that exists elsewhere. Release Please owns versions from here on.
+
+## The default host selector stays
+
+**Decision.** `hostSelector` still defaults to `[data-testid="game-viewport"]`.
+
+**Why.** Changing a default is a breaking change, and existing consumers rely on it. The prop and the
+parent-element fallback make it fully overridable; the selector is documented rather than hidden.
+
+## Toolchain: Node 26 and pnpm 12 to build, Node 24 as the floor to run
+
+**Decision.** `.nvmrc` is 26 and `packageManager` is pnpm 12; `engines.node` is `>=24` with no
+ceiling, and `@types/node` stays on 24.
+
+**Why.** The package is built where the toolchain is moving, but a library must not reach for an API
+its oldest supported consumer lacks. CI runs Node 24 and 26.
+
+## Chromium is part of `pnpm verify`
+
+**Decision.** `FloatingJoystick` is tested in real Chromium, and CI, the coverage job and the publish
+job install it before running the gate.
+
+**Why.** Pointer capture and multi-touch `pointerId` claiming cannot be driven faithfully by jsdom. A
+runner without Chromium fails the gate instead of skipping the pointer tests.
+
+## CommonJS is one bundle with mirrored declarations
+
+**Decision.** ESM is the plain `tsc` output. CommonJS is a single esbuild bundle, and every ESM
+declaration is mirrored to a `.d.cts` with `.cjs` specifiers.
+
+**Why.** A `require` condition pointing at a `.d.ts` inside a `"type": "module"` package is reported
+by arethetypeswrong as masquerading as ESM and gives CommonJS consumers the wrong module shape. The
+mirror keeps one source of truth for the types and passes `attw`.
+
+## No `prepublishOnly`
+
+**Decision.** Publishing is the `publish` job in `cd.yml`, which verifies at the release tag and runs
+`npm publish` by OIDC trusted publishing. `prepack` still builds, so a bare `npm pack` can never ship
+a stale or missing `dist`.
+
+**Why.** One publish path, with provenance, that no local machine can drift from.
