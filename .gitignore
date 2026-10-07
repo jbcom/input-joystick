@@ -7,3 +7,4 @@ coverage/
 docs/dist/
 tests/__screenshots__/
 .vitest-attachments/
+.agent-state/
