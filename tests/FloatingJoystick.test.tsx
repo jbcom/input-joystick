@@ -301,7 +301,7 @@ test("a claimArea decides which presses the stick takes; the rest are left alone
 
   host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 2 }));
   await waitFor(() => expect(ring()).not.toBeNull());
-  expect(registry.ownerOf(2)).toBe("joystick");
+  expect(registry.ownerOf(2)).toMatch(/^joystick:/);
 });
 
 test("the claimArea receives the press and the host's rectangle", () => {
@@ -367,11 +367,29 @@ test("a new claimArea function identity does not release a held pointer", async 
 
 // --- pointer ownership ------------------------------------------------------------------------
 
-test("the stick claims its pointer as 'joystick' in the shared registry by default", async () => {
+test("the stick claims its pointer under its own 'joystick:' name in the shared registry by default", async () => {
   const { host } = mount();
   host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
   await waitFor(() => expect(ring()).not.toBeNull());
-  expect(pointerOwnership.ownerOf(1)).toBe("joystick");
+  expect(pointerOwnership.ownerOf(1)).toMatch(/^joystick:/);
+});
+
+test("two default sticks never both take one pointer", async () => {
+  const registry = createPointerOwnership();
+  const steered: string[] = [];
+  const view = render(
+    <div data-testid="game-viewport" style={{ width: 320, height: 320 }}>
+      <FloatingJoystick ownership={registry} onChange={() => steered.push("first")} />
+      <FloatingJoystick ownership={registry} onChange={() => steered.push("second")} />
+    </div>
+  );
+  const host = view.getByTestId("game-viewport");
+  host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
+  window.dispatchEvent(pointer("pointermove", { x: 150, y: 100, id: 1 }));
+
+  await waitFor(() => expect(ring()).not.toBeNull());
+  expect(document.querySelectorAll('[data-testid="floating-joystick"]')).toHaveLength(1);
+  expect(new Set(steered).size).toBe(1);
 });
 
 test("a custom owner name and registry are used for the claim", async () => {
@@ -409,7 +427,7 @@ test("a pointer the stick holds is refused to everyone else", async () => {
 
   expect(registry.claim(1, "station")).toBe(false);
   expect(registry.release(1, "station")).toBe(false);
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
 });
 
 test("two fingers: the stick keeps its own, a station keeps the other, neither crosses over", async () => {
@@ -429,13 +447,13 @@ test("two fingers: the stick keeps its own, a station keeps the other, neither c
   // The stick finger drags: the stick steers from it.
   window.dispatchEvent(pointer("pointermove", { x: 160, y: 100, id: 1 }));
   await waitFor(() => expect(vectors.at(-1)?.x).toBeGreaterThan(0.9));
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
   expect(registry.ownerOf(2)).toBe("station");
 
   // The station finger lifts: its claim goes, the stick's is untouched and still steering.
   window.dispatchEvent(pointer("pointerup", { x: 250, y: 100, id: 2 }));
   expect(registry.ownerOf(2)).toBeUndefined();
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
   expect(ring()).not.toBeNull();
   expect(vectors.at(-1)?.magnitude).toBeGreaterThan(0);
 });
@@ -450,7 +468,7 @@ test("once the owner lets go, the same pointer id can start the stick", async ()
   window.dispatchEvent(pointer("pointerup", { x: 100, y: 100, id: 1 }));
   host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
   await waitFor(() => expect(ring()).not.toBeNull());
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
 });
 
 test("pointerup releases the stick's claim and zeroes the vector", async () => {
@@ -488,7 +506,7 @@ test("a pointercancel on a station's pointer leaves the stick's claim alone", as
 
   window.dispatchEvent(pointer("pointercancel", { x: 250, y: 250, id: 2 }));
   expect(registry.ownerOf(2)).toBeUndefined();
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
   expect(ring()).not.toBeNull();
   expect(vectors.at(-1)?.magnitude).toBe(0);
 });
@@ -555,7 +573,7 @@ test("disabling releases the held claim", async () => {
     .getByTestId("game-viewport")
     .dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
   await waitFor(() => expect(ring()).not.toBeNull());
-  expect(registry.ownerOf(1)).toBe("joystick");
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
 
   view.rerender(tree(true));
   expect(registry.ownerOf(1)).toBeUndefined();
@@ -578,7 +596,7 @@ test("the stick gives its claim back on pointerup even when the registry does no
   host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
   window.dispatchEvent(pointer("pointermove", { x: 150, y: 100, id: 1 }));
   await waitFor(() => expect(vectors.at(-1)?.magnitude).toBeGreaterThan(0));
-  expect(inner.ownerOf(1)).toBe("joystick");
+  expect(inner.ownerOf(1)).toMatch(/^joystick:/);
 
   window.dispatchEvent(pointer("pointerup", { x: 150, y: 100, id: 1 }));
   expect(inner.ownerOf(1)).toBeUndefined();

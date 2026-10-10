@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ClaimArea, ClaimRect } from "./claimArea.js";
 import { type JoystickVector, normalizeJoystick } from "./normalizeJoystick.js";
 import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
@@ -32,7 +32,7 @@ export interface FloatingJoystickProps {
    * holds is never taken and one the stick holds is not offered to others.
    * Default: the shared `pointerOwnership`. */
   ownership?: PointerOwnership;
-  /** The name the stick claims under in `ownership`, default "joystick". */
+  /** The name the stick claims under in `ownership`; default `"joystick:"` and a per-instance id. */
   owner?: string;
 }
 
@@ -68,8 +68,12 @@ export function FloatingJoystick({
   hostSelector = DEFAULT_HOST_SELECTOR,
   claimArea,
   ownership = pointerOwnership,
-  owner = DEFAULT_OWNER,
+  owner: ownerProp,
 }: FloatingJoystickProps) {
+  // Each stick claims under its own name, so two default sticks (a dual-stick layout) never both
+  // take one pointer: the registry treats a claim by the owner already holding it as granted.
+  const defaultOwner = `${DEFAULT_OWNER}:${useId()}`;
+  const owner = ownerProp ?? defaultOwner;
   const scopeRef = useRef<HTMLDivElement>(null);
   const activePointer = useRef<number | null>(null);
   const origin = useRef({ x: 0, y: 0 });

@@ -53,7 +53,7 @@ A touch-anywhere joystick. It renders a full-size, pointer-transparent wrapper
 | `hostSelector` | `string` | `'[data-testid="game-viewport"]'` | Selector for the closest ancestor used as the hit-test host. Falls back to the parent element. |
 | `claimArea` | `ClaimArea` | the whole host | Which presses inside the host the stick may claim. See [`claimWidthFraction`](#claimwidthfraction). |
 | `ownership` | `PointerOwnership` | the shared `pointerOwnership` | The registry the stick claims its pointer in. See [`PointerOwnership`](#pointerownership). |
-| `owner` | `string` | `"joystick"` | The name the stick claims under in `ownership`. |
+| `owner` | `string` | `"joystick:"` + a per-instance id | The name the stick claims under in `ownership`. Each default stick has its own, so two never both take one pointer. |
 
 `accent` is concatenated with two-digit hex alpha suffixes, so pass a six-digit hex color such as
 `"#38bdf8"`.
