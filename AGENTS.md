@@ -24,21 +24,29 @@ obvious from reading the code alone.
 Full detail in `docs/ARCHITECTURE.md`.
 
 1. At most one pointer is claimed at a time; a second pointer never steals or ends the gesture.
-2. A `pointerdown` is claimed only after the host, rectangle and interactive-target checks pass.
-3. Pointer end, cancel, `disabled` and unmount always report a zero vector.
-4. `onChange` is read through a ref; a new callback identity must not re-attach listeners.
+2. A `pointerdown` is claimed only after the host, rectangle, interactive-target and `claimArea`
+   checks pass, and the ownership claim is the last check, so a rejected press never holds a claim.
+3. Pointer end, cancel, a claim released from the registry, `disabled` and unmount always report a
+   zero vector.
+4. `onChange` and `claimArea` are read through refs; a new callback identity must not re-attach
+   listeners.
 5. No host coupling: accent, host selector and label are props, never read from a CSS custom
    property or a global.
 6. `normalizeJoystick` stays pure and free of DOM and React.
 7. `hostSelector` defaults to `[data-testid="game-viewport"]`. Changing a default is a breaking
    change.
+8. The stick never takes a pointer another owner holds in its `PointerOwnership`, and the registry
+   attaches no listener until `attach` is called (the package stays `sideEffects: false`).
+   `pointerOwnership.ts` and `claimArea.ts` stay free of React.
 
 ## Keeping docs and tests in sync
 
 A change to the public surface in `src/` needs matching updates in all of:
 
 - `tests/*.test.ts(x)`: coverage is 100% per suite, not "reasonable effort". Pointer behavior goes in
-  `tests/FloatingJoystick.test.tsx` (real Chromium); pure logic and hooks go in the jsdom suite.
+  `tests/FloatingJoystick.test.tsx` (real Chromium); pure logic and hooks (`claimArea`,
+  `pointerOwnership`, `usePointerOwnership`) go in the jsdom suite. A new test file must be added to
+  `include` in the matching vitest config, and its source file to that config's coverage `include`.
 - `docs/API.md` and `docs/ARCHITECTURE.md`: the authored Sourcey pages and the canonical references.
   Do not create a second documentation renderer or a duplicate page tree.
 - `README.md`: if the change affects the quick start or the API table.

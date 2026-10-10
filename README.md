@@ -19,6 +19,11 @@ means and how the joystick looks.
   DOM.
 - `useKeyboardVectorMap`: an opt-in WASD and arrow-key co-map that emits the same `{ x, y }` shape,
   for desktop testing and keyboard parity.
+- `claimArea` and `claimWidthFraction`: say which presses the stick claims (the left 40% of the
+  screen, say), so the rest is free for look, drag or taps.
+- `pointerOwnership`, `createPointerOwnership` and `usePointerOwnership`: a small pointer registry
+  that arbitrates which subsystem owns a finger, so a drag that starts on a station is not also a
+  stick or a look. The joystick claims through it.
 
 ## Install
 
@@ -57,12 +62,49 @@ Mount `FloatingJoystick` inside the element that should accept the touch. By def
 the closest ancestor matching `[data-testid="game-viewport"]`, falling back to its parent element;
 pass `hostSelector` to scope it to your own viewport.
 
+### Share the screen with look and stations
+
+Claim only part of the host for the stick, and let other subsystems take the pointers they use:
+
+```tsx
+import {
+  FloatingJoystick,
+  claimWidthFraction,
+  usePointerOwnership,
+  type JoystickVector,
+} from "input-joystick";
+
+function Controls({ onMove }: { onMove: (v: JoystickVector) => void }) {
+  const pointers = usePointerOwnership("look");
+
+  return (
+    <>
+      <FloatingJoystick claimArea={claimWidthFraction("left", 0.4)} onChange={onMove} />
+      <div
+        onPointerDown={(e) => pointers.claim(e.pointerId) && startLookDrag(e)}
+        onPointerUp={(e) => pointers.release(e.pointerId)}
+      />
+    </>
+  );
+}
+```
+
+A pointer the stick holds is refused to `pointers.claim`, and a pointer a station has claimed is never
+taken by the stick. Claims are released when the pointer ends, is cancelled or the window loses
+focus.
+
 ## API overview
 
 | Export | Kind | What it does |
 | --- | --- | --- |
 | `FloatingJoystick` | component | Claims one pointer inside its host, emits normalized vectors, draws the ring and knob. |
-| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`. |
+| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`, `claimArea`, `ownership`, `owner`. |
+| `claimWidthFraction(side, fraction)` | function | A `ClaimArea` for the `fraction` of the host's width from the `"left"` or `"right"` edge. |
+| `ClaimArea`, `ClaimRect` | types | `(event, rect) => boolean` over the `pointerdown` and the host's rectangle. |
+| `pointerOwnership` | value | The shared `PointerOwnership` registry the joystick uses by default. |
+| `createPointerOwnership()` | function | Makes an isolated `PointerOwnership`: `claim`, `release`, `releaseAll`, `ownerOf`, `clear`, `onRelease`, `attach`. |
+| `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
+| `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
 | `normalizeJoystick(raw, radius, deadZone)` | function | Pure deadzone, clamp and normalize math returning a `JoystickVector`. |
 | `JoystickVector`, `RawOffset` | types | `{ x, y, magnitude, angle }` and `{ x, y }`. |
 | `useKeyboardVectorMap(options)` | hook | Maps keys to unit vectors and calls `onChange({ x, y })`. |
@@ -77,6 +119,9 @@ the design is in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 - Taps on `button`, `a`, `input`, `textarea`, `select`, `summary`, `[role="button"]` or anything
   marked `data-joystick-ignore` never start the joystick.
 - `disabled` releases any held pointer, reports a zero vector and ignores new touches.
+- The stick never takes a pointer another owner already holds in the registry, and refuses its own
+  pointer to everyone else until it ends.
+- A `claimArea` that rejects a press leaves it alone: nothing is claimed or prevented.
 - The accent color is an explicit prop. The component never reads a host CSS custom property.
 
 ## Compatibility

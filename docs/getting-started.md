@@ -51,6 +51,45 @@ on an element outside the host, never start the stick.
 <FloatingJoystick hostSelector="#playfield" onChange={onChange} />
 ```
 
+## Claim only part of the screen
+
+By default the stick takes a press anywhere in the host. Pass a `claimArea` to take only some of it
+and leave the rest for look, drag or taps:
+
+```tsx
+import { FloatingJoystick, claimWidthFraction } from "input-joystick";
+
+<FloatingJoystick claimArea={claimWidthFraction("left", 0.4)} onChange={onChange} />;
+```
+
+`claimWidthFraction("left", 0.4)` claims the left 40% of the host's width. For any other shape, pass
+a function of the `pointerdown` and the host's rectangle that returns whether the stick claims it.
+
+## Share pointers with other controls
+
+When a station, a button widget or a look-drag also uses pointers, give them one registry so a
+finger is only ever one of them. The stick uses the shared `pointerOwnership` registry by default:
+
+```tsx
+import { usePointerOwnership } from "input-joystick";
+
+function LookSurface() {
+  const pointers = usePointerOwnership("look");
+
+  return (
+    <div
+      onPointerDown={(event) => {
+        if (pointers.claim(event.pointerId)) startLook(event); // false: the stick or a station has it
+      }}
+      onPointerUp={(event) => pointers.release(event.pointerId)}
+    />
+  );
+}
+```
+
+Outside React, use `pointerOwnership.claim(pointerId, owner)`, `release` and `ownerOf` directly, and
+`pointerOwnership.attach()` so claims are released when a pointer ends or the window loses focus.
+
 ## Keep controls tappable
 
 A button, link or form control inside the host keeps its own taps. For anything else that must not

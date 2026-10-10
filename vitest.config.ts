@@ -13,12 +13,21 @@ export default defineConfig({
     include: [
       "tests/normalizeJoystick.test.ts",
       "tests/useKeyboardVectorMap.test.tsx",
+      "tests/claimArea.test.ts",
+      "tests/pointerOwnership.test.ts",
+      "tests/usePointerOwnership.test.tsx",
       "tests/repository-contract.test.ts",
     ],
     passWithNoTests: false,
     coverage: {
       provider: "v8",
-      include: ["src/normalizeJoystick.ts", "src/useKeyboardVectorMap.ts"],
+      include: [
+        "src/normalizeJoystick.ts",
+        "src/useKeyboardVectorMap.ts",
+        "src/claimArea.ts",
+        "src/pointerOwnership.ts",
+        "src/usePointerOwnership.ts",
+      ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/jsdom",
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },

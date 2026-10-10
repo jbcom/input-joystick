@@ -78,8 +78,25 @@ try {
   // against the consumer's own React; the pure math and the exports are checked directly.
   const assertion = `
     if (pkg.version !== ${JSON.stringify(expectedVersion)}) throw new Error('version ' + pkg.version)
-    for (const name of ['FloatingJoystick', 'normalizeJoystick', 'useKeyboardVectorMap']) {
+    for (const name of [
+      'FloatingJoystick',
+      'normalizeJoystick',
+      'useKeyboardVectorMap',
+      'usePointerOwnership',
+      'claimWidthFraction',
+      'createPointerOwnership',
+    ]) {
       if (typeof api[name] !== 'function') throw new Error('missing export ' + name)
+    }
+    if (typeof api.pointerOwnership?.claim !== 'function') throw new Error('missing pointerOwnership')
+    const registry = api.createPointerOwnership()
+    if (!registry.claim(1, 'a') || registry.claim(1, 'b') || registry.ownerOf(1) !== 'a') {
+      throw new Error('pointer ownership arbitration')
+    }
+    const claims = api.claimWidthFraction('left', 0.5)
+    const rect = { left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100 }
+    if (!claims({ clientX: 49 }, rect) || claims({ clientX: 50 }, rect)) {
+      throw new Error('claimWidthFraction')
     }
     const vector = api.normalizeJoystick({ x: 100, y: 0 }, 50, 0.1)
     if (vector.magnitude !== 1 || vector.x !== 1 || vector.y !== 0) {
