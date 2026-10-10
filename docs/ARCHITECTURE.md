@@ -60,9 +60,11 @@ that shares the screen with the stick should be separated from it by a claim are
 the left 40%, the look-drag the rest) rather than by listener order.
 
 The registry's own release listeners are also bubble-phase on `window`, after the handlers that saw
-the event. That keeps a claim made while handling `pointerup` (a tap on a station) from being
-released before it is made. The price is that a handler which stops `pointerup` before it reaches
-`window` must release its own claim.
+the event, so the pointer's existing claim is released once every handler has seen its `pointerup`.
+A handler that claims during `pointerup` cannot rely on that listener (whether it runs before or
+after the claim depends on where the handler is registered), and neither can one that stops
+`pointerup` before it reaches `window`: both must release their own claim, as `API.md` says for
+`attach`.
 
 ## Performance
 
