@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/jbcom/input-joystick/compare/v0.2.2...v0.3.0) (2026-10-10)
+
+
+### Features
+
+* claim areas and pointer ownership for the joystick ([608f638](https://github.com/jbcom/input-joystick/commit/608f638a87f91557619103f560c2b979dc91ee19))
+* claim areas and pointer ownership for the joystick ([edff1da](https://github.com/jbcom/input-joystick/commit/edff1dad78a796f0b1c5e188c208a59bf4582aca))
+
+
+### Bug Fixes
+
+* **joystick:** each default stick claims under its own name ([069200f](https://github.com/jbcom/input-joystick/commit/069200f2923fd728f3c6db8f06d9c1faae744120))
+
 ## [0.2.2](https://github.com/jbcom/input-joystick/compare/v0.2.1...v0.2.2) (2026-10-07)
 
 

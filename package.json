@@ -1,6 +1,6 @@
 {
   "name": "input-joystick",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Touch-anywhere floating virtual joystick for React canvas games, with a pure deadzone/normalize function and an opt-in keyboard co-map.",
   "type": "module",
   "license": "MIT",
