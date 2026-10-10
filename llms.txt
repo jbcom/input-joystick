@@ -1,9 +1,10 @@
 # input-joystick
 
 > A touch-anywhere floating virtual joystick for React canvas games: a component that claims one
-> pointer inside a host element and emits normalized vectors, a pure deadzone/clamp function, and an
-> opt-in WASD/arrow-key co-map. It owns pointer claiming and hit-testing; the game owns what the
-> vector means and how it looks.
+> pointer inside a host element and emits normalized vectors, a pure deadzone/clamp function, an
+> opt-in WASD/arrow-key co-map, a claim-area predicate for which presses the stick takes, and a
+> pointer-ownership registry that arbitrates which subsystem owns a finger. It owns pointer claiming
+> and hit-testing; the game owns what the vector means and how it looks.
 
 ## Docs
 

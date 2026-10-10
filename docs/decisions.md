@@ -29,6 +29,34 @@ into an audio package would put an unrelated peer dependency on every audio cons
 **Why.** 0.1.0, 0.1.1 and 0.2.0 were published to the private registry, so 0.2.1 continues the
 sequence without reusing a number that exists elsewhere. Release Please owns versions from here on.
 
+## 2026-10-10: pointer ownership is a registry in the package, not a prop or a game module
+
+**Decision.** The package ships a framework-free pointer registry (`createPointerOwnership`, a
+shared `pointerOwnership`, and `usePointerOwnership`) and the joystick claims through it. Where the
+stick wins is a separate `claimArea` predicate, with `claimWidthFraction` as the ready-made one.
+
+**Why.** A game with a stick also has stations, a look-drag and widgets, and the first bug is a finger
+that is two of them. That arbitration is by pointer id, belongs to no one subsystem, and was being
+rewritten per game as a module-level `Set` plus a hand-wired `pointerup` listener. Options weighed:
+
+- *An `ignorePointers` callback prop on the stick.* Rejected: it makes the stick the only party that
+  can refuse, so a station cannot be told the stick has a finger, and every game re-implements the
+  bookkeeping behind the callback.
+- *A claim area alone.* Rejected as insufficient: a station can sit inside the stick's area, and the
+  area says where the stick may start, not who already has the finger.
+- *A registry the stick joins.* Chosen: both directions work (the stick refuses a held pointer; others
+  are refused the stick's), release on pointer end is shared, and the hook gives React code the same
+  contract without a second source of truth.
+
+A module-level shared instance is the default because independent components must meet in one place
+without prop drilling; `createPointerOwnership` and the `ownership` prop make it replaceable for
+tests and multi-surface apps. The shared instance is inert until something calls `attach`, so
+`sideEffects: false` still holds.
+
+**Why the claim area is a predicate.** The stick already hit-tests against the host rectangle;
+passing that rectangle to a function keeps one coordinate system and lets a game use a fraction, a
+rectangle or a circle without the package learning each shape.
+
 ## The default host selector stays
 
 **Decision.** `hostSelector` still defaults to `[data-testid="game-viewport"]`.
