@@ -15,6 +15,8 @@ means and how the joystick looks.
 
 - `FloatingJoystick`: the React component. Renders nothing until a touch begins, then a ring and
   knob at the touch origin.
+- `createLookInput`: a renderer-neutral mouse pointer-lock and touch-look controller with unbounded
+  yaw, clamped pitch, explicit acquisition, and independent touch ownership.
 - `normalizeJoystick`: the pure deadzone, clamp and normalize function, usable without React or a
   DOM.
 - `useKeyboardVectorMap`: an opt-in WASD and arrow-key co-map that emits the same `{ x, y }` shape,
@@ -105,6 +107,8 @@ focus.
 | `createPointerOwnership()` | function | Makes an isolated `PointerOwnership`: `claim`, `release`, `releaseAll`, `ownerOf`, `clear`, `onRelease`, `attach`. |
 | `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
 | `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
+| `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
+| `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
 | `normalizeJoystick(raw, radius, deadZone)` | function | Pure deadzone, clamp and normalize math returning a `JoystickVector`. |
 | `JoystickVector`, `RawOffset` | types | `{ x, y, magnitude, angle }` and `{ x, y }`. |
 | `useKeyboardVectorMap(options)` | hook | Maps keys to unit vectors and calls `onChange({ x, y })`. |

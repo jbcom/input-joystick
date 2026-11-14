@@ -13,6 +13,7 @@ description: Module boundaries, invariants and intentional limits.
 | `src/pointerOwnership.ts` | The pointer registry: who owns which pointer id. No React; the DOM only through the optional `attach`. |
 | `src/usePointerOwnership.ts` | The React hook over the registry, bound to one owner. |
 | `src/useKeyboardVectorMap.ts` | The opt-in keyboard co-map. Independent of the component. |
+| `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
 | `src/index.ts` | The public surface; nothing else is importable. |
 
 The math lives in its own module so the curve is unit-testable without simulating pointer events,
@@ -82,3 +83,35 @@ or a small store and read the value from your game loop.
   resize the host.
 - The keyboard map reports the latest key, not a combined vector of every held key.
 - Styling beyond `accent`, `radius` and `label` belongs to the application.
+
+## Look lifecycle
+
+`createLookInput` owns only DOM input and numeric radian angles. It never requests pointer lock
+while mounting, pressing the host, or recovering from a denial. Only an explicit caller request can
+start acquisition, so the application controls its permission and resume UI. Lock events establish
+success, supporting both promise-returning and older void-returning browser implementations.
+
+A pending attempt has an identity and cancellation flag. Error events or a rejection settle that
+attempt without converting a denial into success. A rejected stale promise cannot cancel a newer
+request. Reset and disposal mark a pending attempt cancelled; result listeners stay until the
+browser answers, and a late acquisition is immediately exited. All other listeners leave on
+disposal. Each controller checks its own element against its own document's lock; unrelated locks
+and idle error events do not clear its state.
+
+Touch look uses the existing pointer registry with a unique default owner. It claims only after
+host, control and claim-area checks. Cancellation, pointer end and registry release operate on that
+pointer alone. Escape, blur and lifecycle reset clear held input through `onReset` while retaining
+heading. Mouse look consumes deltas only while this controller owns pointer lock. Touch look and
+the joystick consume separate pointers without sharing mutable gesture state.
+
+Angle updates are immediate delta integration in radians, with no frame-time scaling: the browser
+already supplies a displacement. Yaw remains unbounded, pitch alone clamps, and renderer coordinate
+conventions remain the consumer's choice. Keyboard movement clears on lock loss but stays held on
+acquisition, so enabling look while walking cannot silently discard the held movement vector.
+
+The real Chromium suite requires native acquisition and Escape release under Linux/Xvfb. macOS
+headless Chromium has no focused native view and rejects pointer lock with `WrongDocumentError`
+(Playwright issue [20956](https://github.com/microsoft/playwright/issues/20956)); that environment
+instead asserts the exact native denial and reset callback. It is not acquisition proof. Browser
+processes always use `--mute-audio`; headless execution is enabled only by explicit render-host
+configuration, while Linux CI and release verification use Xvfb with headed Chromium.

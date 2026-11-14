@@ -64,12 +64,12 @@ describe("repository contract", () => {
       "pnpm run lint && pnpm run lint:docs && pnpm run typecheck && pnpm run coverage && pnpm run build && pnpm run package:check && pnpm run smoke:consumer"
     );
     const ci = read(".github/workflows/ci.yml");
-    expect(ci).toContain("run: pnpm verify");
+    expect(ci).toContain("run: xvfb-run -a pnpm verify");
     for (const major of [22, 24, 26]) {
       expect(ci).toContain(`node: "${major}"`);
     }
     // The FloatingJoystick tests need real Chromium; verify cannot pass on a runner without it.
-    expect(ci).toMatch(/playwright install --with-deps chromium\s+- run: pnpm verify/);
+    expect(ci).toMatch(/playwright install --with-deps chromium\s+- run: xvfb-run -a pnpm verify/);
   });
 
   it("publishes from cd.yml by OIDC trusted publishing, with no stored registry token", () => {
@@ -77,7 +77,7 @@ describe("repository contract", () => {
     const cd = read(".github/workflows/cd.yml");
     expect(cd).toContain("id-token: write");
     expect(cd).toContain("registry-url: https://registry.npmjs.org");
-    expect(cd).toMatch(/playwright install --with-deps chromium[\s\S]+?pnpm verify/);
+    expect(cd).toMatch(/playwright install --with-deps chromium[\s\S]+?xvfb-run -a pnpm verify/);
     expect(cd).toContain("npm publish --access public --provenance");
     expect(cd).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN/);
   });

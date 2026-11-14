@@ -85,6 +85,7 @@ try {
       'usePointerOwnership',
       'claimWidthFraction',
       'createPointerOwnership',
+      'createLookInput',
     ]) {
       if (typeof api[name] !== 'function') throw new Error('missing export ' + name)
     }

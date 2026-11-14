@@ -108,3 +108,43 @@ test("a mapped keydown is default-prevented and unmounting removes the listeners
   window.dispatchEvent(new KeyboardEvent("keyup", { key: "s" }));
   expect(onChange).not.toHaveBeenCalled();
 });
+
+test("Escape, blur, disabling and unmount clear held input", () => {
+  const onChange = vi.fn();
+  function Toggle({ disabled = false }: { disabled?: boolean }) {
+    useKeyboardVectorMap({ onChange, disabled });
+    return null;
+  }
+  const view = render(<Toggle />);
+  for (const event of [new KeyboardEvent("keydown", { key: "Escape" }), new Event("blur")]) {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+    window.dispatchEvent(event);
+    expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  }
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+  view.rerender(<Toggle disabled />);
+  expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  view.rerender(<Toggle />);
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+  view.unmount();
+  expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+});
+
+test("lock acquisition preserves movement, loss clears it, callbacks can change without cancelling input", () => {
+  const first = vi.fn();
+  const second = vi.fn();
+  let lock: Element | null = null;
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => lock });
+  const view = render(<Harness onChange={first} />);
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+  lock = document.createElement("div");
+  document.dispatchEvent(new Event("pointerlockchange"));
+  expect(first).toHaveBeenLastCalledWith({ x: 0, y: -1 });
+  view.rerender(<Harness onChange={second} />);
+  expect(second).not.toHaveBeenCalled();
+  lock = null;
+  document.dispatchEvent(new Event("pointerlockchange"));
+  expect(second).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  document.dispatchEvent(new Event("pointerlockchange"));
+  expect(second).toHaveBeenCalledTimes(1);
+});

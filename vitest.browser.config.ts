@@ -8,12 +8,22 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ["tests/FloatingJoystick.test.tsx"],
+    include: ["tests/FloatingJoystick.test.tsx", "tests/lookInput.browser.test.ts"],
     passWithNoTests: false,
     browser: {
       enabled: true,
-      headless: true,
-      provider: playwright(),
+      headless:
+        process.env.HEAVY_RENDER_HEADLESS === "1" || process.env.HEAVY_BROWSER_HEADLESS === "1",
+      provider: playwright({
+        launchOptions: {
+          args: [
+            "--mute-audio",
+            ...(process.env.HEAVY_RENDER_HOST
+              ? ["--use-angle=metal", "--ignore-gpu-blocklist"]
+              : []),
+          ],
+        },
+      }),
       instances: [{ browser: "chromium" }],
     },
     coverage: {

@@ -1,0 +1,235 @@
+import type { ClaimArea } from "./claimArea.js";
+import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
+
+/** Radians; yaw is deliberately unbounded. Positive deltas look left/up. */
+export interface LookAngles {
+  yaw: number;
+  pitch: number;
+}
+export interface LookState extends LookAngles {
+  locked: boolean;
+}
+export interface LookInputOptions {
+  element: HTMLElement;
+  onChange: (angles: LookAngles) => void;
+  /** Clear held movement/actions here. Heading is preserved. */
+  onReset?: () => void;
+  onLockChange?: (locked: boolean) => void;
+  onLockError?: () => void;
+  ownership?: PointerOwnership;
+  /** Unique per look subsystem sharing a registry. Defaults to a unique generated name. */
+  owner?: string;
+  /** Applied to touch presses after host/control checks, before ownership. */
+  claimArea?: ClaimArea;
+  /** Radians per CSS pixel. Defaults to 0.002. */
+  sensitivity?: number;
+  /** Absolute pitch cap in radians, in (0, PI/2]. Defaults to PI/2. */
+  pitchLimit?: number;
+  initial?: LookAngles;
+}
+export interface LookInput {
+  /** Call directly from an intentional user gesture. Never called automatically. */
+  requestPointerLock(): Promise<boolean>;
+  getState(): LookState;
+  /** Cancel held look and notify onReset, retaining heading. Also cancels pending lock. */
+  reset(): void;
+  /** Release this controller's resources and its lock, never another element's. Idempotent. */
+  dispose(): void;
+}
+
+let nextOwner = 0;
+
+/** DOM input only: no renderer, React, storage, animation loop or automatic lock request. */
+export function createLookInput({
+  element,
+  onChange,
+  onReset,
+  onLockChange,
+  onLockError,
+  ownership = pointerOwnership,
+  owner = `look-${nextOwner++}`,
+  claimArea,
+  sensitivity = 0.002,
+  pitchLimit = Math.PI / 2,
+  initial = { yaw: 0, pitch: 0 },
+}: LookInputOptions): LookInput {
+  if (!(Number.isFinite(sensitivity) && sensitivity > 0)) {
+    throw new RangeError("sensitivity must be finite and positive");
+  }
+  if (!(pitchLimit > 0 && pitchLimit <= Math.PI / 2)) {
+    throw new RangeError("pitchLimit must be in (0, PI/2]");
+  }
+  if (!Number.isFinite(initial.yaw) || !Number.isFinite(initial.pitch)) {
+    throw new RangeError("initial angles must be finite");
+  }
+  const doc = element.ownerDocument;
+  const win = doc.defaultView;
+  if (!win) throw new Error("element must belong to a window");
+  let angles: LookAngles = {
+    yaw: initial.yaw,
+    pitch: Math.max(-pitchLimit, Math.min(pitchLimit, initial.pitch)),
+  };
+  let locked = doc.pointerLockElement === element;
+  let disposed = false;
+  let touch: { id: number; x: number; y: number } | undefined;
+  let pending:
+    | { promise: Promise<boolean>; resolve: (locked: boolean) => void; cancelled: boolean }
+    | undefined;
+
+  const dropTouch = () => {
+    if (!touch) return;
+    const id = touch.id;
+    touch = undefined;
+    ownership.release(id, owner);
+  };
+  const reset = () => {
+    dropTouch();
+    if (pending) pending.cancelled = true;
+    onReset?.();
+  };
+  const move = (x: number, y: number) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    angles = {
+      yaw: angles.yaw - x * sensitivity,
+      pitch: Math.max(-pitchLimit, Math.min(pitchLimit, angles.pitch - y * sensitivity)),
+    };
+    onChange({ ...angles });
+  };
+  const finish = (success: boolean) => {
+    const attempt = pending;
+    pending = undefined;
+    attempt?.resolve(success);
+    if (disposed) detachLock();
+  };
+  const onError = () => {
+    if (!pending) return;
+    reset();
+    if (!disposed) onLockError?.();
+    finish(false);
+  };
+  const onLock = () => {
+    const ownsLock = doc.pointerLockElement === element;
+    if (ownsLock && (disposed || pending?.cancelled)) {
+      finish(false);
+      doc.exitPointerLock();
+      return;
+    }
+    if (locked !== ownsLock) {
+      locked = ownsLock;
+      dropTouch();
+      if (!locked) reset();
+      onLockChange?.(locked);
+    }
+    if (pending && (ownsLock || doc.pointerLockElement !== null)) {
+      finish(ownsLock);
+    }
+  };
+  const onMouse = (event: MouseEvent) => {
+    if (locked) move(event.movementX, event.movementY);
+  };
+  const onDown = (event: PointerEvent) => {
+    if (touch || locked || event.pointerType !== "touch" || event.button !== 0) return;
+    const target = event.target as Element;
+    if (
+      target.closest(
+        "button,a,input,textarea,select,summary,[role='button'],[data-joystick-ignore]"
+      )
+    )
+      return;
+    const rect = element.getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    )
+      return;
+    if (claimArea && !claimArea(event, rect)) return;
+    if (!ownership.claim(event.pointerId, owner)) return;
+    touch = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    event.preventDefault();
+  };
+  const onMove = (event: PointerEvent) => {
+    if (!touch || event.pointerId !== touch.id) return;
+    const dx = event.clientX - touch.x;
+    const dy = event.clientY - touch.y;
+    touch.x = event.clientX;
+    touch.y = event.clientY;
+    move(dx, dy);
+    event.preventDefault();
+  };
+  const onEnd = (event: PointerEvent) => {
+    if (touch?.id === event.pointerId) dropTouch();
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || (!touch && !locked && !pending)) return;
+    reset();
+    if (locked) doc.exitPointerLock();
+  };
+  const onBlur = () => {
+    reset();
+    if (locked) doc.exitPointerLock();
+  };
+  const unsubscribe = ownership.onRelease((id, releasedOwner) => {
+    if (touch?.id === id && releasedOwner === owner) touch = undefined;
+  });
+  // Release only our touch; unlike registry.attach, losing focus here never clears other owners.
+  element.addEventListener("pointerdown", onDown);
+  win.addEventListener("pointermove", onMove);
+  win.addEventListener("pointerup", onEnd);
+  win.addEventListener("pointercancel", onEnd);
+  win.addEventListener("blur", onBlur);
+  doc.addEventListener("keydown", onKey);
+  doc.addEventListener("mousemove", onMouse);
+  doc.addEventListener("pointerlockchange", onLock);
+  doc.addEventListener("pointerlockerror", onError);
+  function detachLock() {
+    doc.removeEventListener("pointerlockchange", onLock);
+    doc.removeEventListener("pointerlockerror", onError);
+  }
+  return {
+    getState: () => ({ ...angles, locked }),
+    requestPointerLock() {
+      if (disposed) return Promise.resolve(false);
+      if (locked) return Promise.resolve(true);
+      if (pending) return pending.promise;
+      let resolve!: (success: boolean) => void;
+      const promise = new Promise<boolean>((done) => {
+        resolve = done;
+      });
+      const attempt = { promise, resolve, cancelled: false };
+      pending = attempt;
+      if (!element.requestPointerLock) {
+        onError();
+        return promise;
+      }
+      try {
+        // Older implementations return void; only lock events establish success.
+        const request = element.requestPointerLock() as Promise<void> | undefined;
+        request?.catch(() => {
+          if (pending === attempt) onError();
+        });
+      } catch {
+        onError();
+      }
+      return promise;
+    },
+    reset,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      reset();
+      unsubscribe();
+      element.removeEventListener("pointerdown", onDown);
+      win.removeEventListener("pointermove", onMove);
+      win.removeEventListener("pointerup", onEnd);
+      win.removeEventListener("pointercancel", onEnd);
+      win.removeEventListener("blur", onBlur);
+      doc.removeEventListener("keydown", onKey);
+      doc.removeEventListener("mousemove", onMouse);
+      if (locked) doc.exitPointerLock();
+      // Keep just lock-result listeners until a pending request settles: a late grant must exit.
+      if (!pending) detachLock();
+    },
+  };
+}

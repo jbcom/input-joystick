@@ -49,7 +49,7 @@ jobs:
       # FloatingJoystick is tested in real Chromium (pointer capture, multi-touch
       # pointerId claiming); verify cannot pass on a runner without it.
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm verify
+      - run: xvfb-run -a pnpm verify
 
   docs:
     name: Docs build
@@ -83,7 +83,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm coverage
+      - run: xvfb-run -a pnpm coverage
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
         env:
