@@ -16,7 +16,8 @@ means and how the joystick looks.
 - `FloatingJoystick`: the React component. Renders nothing until a touch begins, then a ring and
   knob at the touch origin.
 - `createLookInput`: a renderer-neutral mouse pointer-lock and touch-look controller with unbounded
-  yaw, clamped pitch, explicit acquisition, and independent touch ownership.
+  yaw, clamped pitch, explicit acquisition, optional primary-button mouse-drag fallback, and
+  independent pointer ownership.
 - `normalizeJoystick`: the pure deadzone, clamp and normalize function, usable without React or a
   DOM.
 - `useKeyboardVectorMap`: an opt-in WASD and arrow-key co-map that emits the same `{ x, y }` shape,

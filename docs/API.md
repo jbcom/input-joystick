@@ -299,6 +299,7 @@ interface LookInputOptions {
   ownership?: PointerOwnership;
   owner?: string;
   claimArea?: ClaimArea;
+  allowMouseDrag?: boolean;
   sensitivity?: number;
   pitchLimit?: number;
   initial?: LookAngles;
@@ -325,14 +326,25 @@ per CSS pixel and must be finite and positive. `initial` defaults to zero angles
 and its pitch is clamped immediately. Non-finite movement is ignored. Heading survives every reset.
 There is no animation loop or persisted state.
 
-Unlocked mouse movement does nothing. Touch look claims one pointer after the host rectangle,
-interactive-control exclusions (the same as the joystick), and optional `claimArea` pass. Only touch
-is accepted; pen and mouse presses never begin a drag. Use disjoint joystick/look claim areas with
+Unlocked mouse movement does nothing unless `allowMouseDrag: true` opts in to primary-button
+mouse drag. This fallback needs no permission and remains available after pointer-lock denial. It
+never requests lock automatically: pressing, dragging, cancelling and retrying are independent of
+`requestPointerLock()`. The browser captures that mouse pointer on the host, so releasing outside
+the host still ends the gesture. A failed capture releases the claim immediately. Capture loss,
+buttons no longer being held, pointer cancellation, ownership release and lifecycle clearing all
+end that drag. Lock acquisition drops its captured drag before relative deltas begin, preventing
+absolute and relative movement from being counted twice.
+
+Touch look and optional mouse drag claim one pointer after the host rectangle,
+interactive-control exclusions (including editable content), and optional `claimArea` pass. Pen
+never begins a drag; mouse defaults to disabled. Touch and mouse share one active gesture slot. Use disjoint joystick/look claim areas with
 the same registry. `ownership` defaults to `pointerOwnership`; `owner` defaults to a unique generated
 name. If supplying names, use different names for different subsystems. A second pointer cannot
 steal or end the current gesture. Pointer end, cancellation or an externally released claim stops
 only the corresponding look drag; movement and action pointers retain their owners. The host should
-set `touch-action: none` so native scrolling does not cancel a gameplay drag.
+set `touch-action: none` so native scrolling does not cancel a gameplay drag. `claimArea` receives
+both pointer types: a consumer can allow the full viewport for mouse while partitioning touch by
+checking `event.pointerType` in that predicate.
 
 `onReset` lets the game clear held movement/actions after Escape, window blur, lock loss, denial,
 `reset()` or disposal. Lock acquisition retains keyboard movement. `onLockChange` reports only this

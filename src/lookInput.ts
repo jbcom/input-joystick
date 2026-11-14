@@ -19,8 +19,10 @@ export interface LookInputOptions {
   ownership?: PointerOwnership;
   /** Unique per look subsystem sharing a registry. Defaults to a unique generated name. */
   owner?: string;
-  /** Applied to touch presses after host/control checks, before ownership. */
+  /** Applied to drag presses after host/control checks, before ownership. */
   claimArea?: ClaimArea;
+  /** Opt in to unlocked primary-button mouse drag (including after lock denial). Defaults to false. */
+  allowMouseDrag?: boolean;
   /** Radians per CSS pixel. Defaults to 0.002. */
   sensitivity?: number;
   /** Absolute pitch cap in radians, in (0, PI/2]. Defaults to PI/2. */
@@ -49,6 +51,7 @@ export function createLookInput({
   ownership = pointerOwnership,
   owner = `look-${nextOwner++}`,
   claimArea,
+  allowMouseDrag = false,
   sensitivity = 0.002,
   pitchLimit = Math.PI / 2,
   initial = { yaw: 0, pitch: 0 },
@@ -71,19 +74,20 @@ export function createLookInput({
   };
   let locked = doc.pointerLockElement === element;
   let disposed = false;
-  let touch: { id: number; x: number; y: number } | undefined;
+  let drag: { id: number; x: number; y: number; pointerType: string } | undefined;
   let pending:
     | { promise: Promise<boolean>; resolve: (locked: boolean) => void; cancelled: boolean }
     | undefined;
 
-  const dropTouch = () => {
-    if (!touch) return;
-    const id = touch.id;
-    touch = undefined;
+  const dropDrag = () => {
+    if (!drag) return;
+    const id = drag.id;
+    drag = undefined;
+    if (element.hasPointerCapture?.(id)) element.releasePointerCapture(id);
     ownership.release(id, owner);
   };
   const reset = () => {
-    dropTouch();
+    dropDrag();
     if (pending) pending.cancelled = true;
     onReset?.();
   };
@@ -116,7 +120,7 @@ export function createLookInput({
     }
     if (locked !== ownsLock) {
       locked = ownsLock;
-      dropTouch();
+      dropDrag();
       if (!locked) reset();
       onLockChange?.(locked);
     }
@@ -128,11 +132,13 @@ export function createLookInput({
     if (locked) move(event.movementX, event.movementY);
   };
   const onDown = (event: PointerEvent) => {
-    if (touch || locked || event.pointerType !== "touch" || event.button !== 0) return;
+    const acceptsPointer =
+      event.pointerType === "touch" || (allowMouseDrag && event.pointerType === "mouse");
+    if (drag || locked || !acceptsPointer || event.button !== 0) return;
     const target = event.target as Element;
     if (
       target.closest(
-        "button,a,input,textarea,select,summary,[role='button'],[data-joystick-ignore]"
+        "button,a,input,textarea,select,summary,[role='button'],[contenteditable]:not([contenteditable='false']),[data-joystick-ignore]"
       )
     )
       return;
@@ -146,23 +152,40 @@ export function createLookInput({
       return;
     if (claimArea && !claimArea(event, rect)) return;
     if (!ownership.claim(event.pointerId, owner)) return;
-    touch = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    drag = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      pointerType: event.pointerType,
+    };
+    if (event.pointerType === "mouse") {
+      try {
+        element.setPointerCapture?.(event.pointerId);
+      } catch {
+        dropDrag();
+        return;
+      }
+    }
     event.preventDefault();
   };
   const onMove = (event: PointerEvent) => {
-    if (!touch || event.pointerId !== touch.id) return;
-    const dx = event.clientX - touch.x;
-    const dy = event.clientY - touch.y;
-    touch.x = event.clientX;
-    touch.y = event.clientY;
+    if (!drag || event.pointerId !== drag.id) return;
+    if (drag.pointerType === "mouse" && event.buttons === 0) {
+      dropDrag();
+      return;
+    }
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
     move(dx, dy);
     event.preventDefault();
   };
   const onEnd = (event: PointerEvent) => {
-    if (touch?.id === event.pointerId) dropTouch();
+    if (drag?.id === event.pointerId) dropDrag();
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key !== "Escape" || (!touch && !locked && !pending)) return;
+    if (event.key !== "Escape" || (!drag && !locked && !pending)) return;
     reset();
     if (locked) doc.exitPointerLock();
   };
@@ -171,10 +194,11 @@ export function createLookInput({
     if (locked) doc.exitPointerLock();
   };
   const unsubscribe = ownership.onRelease((id, releasedOwner) => {
-    if (touch?.id === id && releasedOwner === owner) touch = undefined;
+    if (drag?.id === id && releasedOwner === owner) dropDrag();
   });
-  // Release only our touch; unlike registry.attach, losing focus here never clears other owners.
+  // Release only our drag; unlike registry.attach, losing focus here never clears other owners.
   element.addEventListener("pointerdown", onDown);
+  element.addEventListener("lostpointercapture", onEnd);
   win.addEventListener("pointermove", onMove);
   win.addEventListener("pointerup", onEnd);
   win.addEventListener("pointercancel", onEnd);
@@ -221,6 +245,7 @@ export function createLookInput({
       reset();
       unsubscribe();
       element.removeEventListener("pointerdown", onDown);
+      element.removeEventListener("lostpointercapture", onEnd);
       win.removeEventListener("pointermove", onMove);
       win.removeEventListener("pointerup", onEnd);
       win.removeEventListener("pointercancel", onEnd);

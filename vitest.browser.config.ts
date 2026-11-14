@@ -8,7 +8,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ["tests/FloatingJoystick.test.tsx", "tests/lookInput.browser.test.ts"],
+    include: [
+      "tests/FloatingJoystick.test.tsx",
+      "tests/lookInput.test.ts",
+      "tests/lookInput.browser.test.ts",
+    ],
     passWithNoTests: false,
     browser: {
       enabled: true,
@@ -25,10 +29,26 @@ export default defineConfig({
         },
       }),
       instances: [{ browser: "chromium" }],
+      commands: {
+        async lookMouse({ page, iframe }, phase: "start" | "move" | "end" | "hover") {
+          const box = await iframe.getByTestId("look-surface").boundingBox();
+          if (!box) throw new Error("Look surface has no bounds");
+          const positions = {
+            start: [80, 100],
+            move: [150, 130],
+            end: [350, 150],
+            hover: [170, 100],
+          } as const;
+          const [x, y] = positions[phase];
+          await page.mouse.move(box.x + x, box.y + y);
+          if (phase === "start") await page.mouse.down();
+          if (phase === "end") await page.mouse.up();
+        },
+      },
     },
     coverage: {
       provider: "v8",
-      include: ["src/FloatingJoystick.tsx"],
+      include: ["src/FloatingJoystick.tsx", "src/lookInput.ts"],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/browser",
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
