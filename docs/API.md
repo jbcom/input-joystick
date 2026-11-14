@@ -10,6 +10,11 @@ import {
   FloatingJoystick,
   claimWidthFraction,
   createPointerOwnership,
+  createLookInput,
+  type LookAngles,
+  type LookState,
+  type LookInput,
+  type LookInputOptions,
   normalizeJoystick,
   pointerOwnership,
   useKeyboardVectorMap,
@@ -279,3 +284,70 @@ An opt-in keyboard co-map. `keys` maps `KeyboardEvent.key` values to vectors and
 The hook reports the most recent key's vector, not a sum of held keys, so it is a parity aid for
 desktop testing rather than a full keyboard movement system. Pass a stable `keys` object (module
 scope or memoized) to avoid re-attaching listeners on every render.
+
+## `createLookInput`
+
+```ts
+interface LookAngles { yaw: number; pitch: number }
+interface LookState extends LookAngles { locked: boolean }
+interface LookInputOptions {
+  element: HTMLElement;
+  onChange: (angles: LookAngles) => void;
+  onReset?: () => void;
+  onLockChange?: (locked: boolean) => void;
+  onLockError?: () => void;
+  ownership?: PointerOwnership;
+  owner?: string;
+  claimArea?: ClaimArea;
+  sensitivity?: number;
+  pitchLimit?: number;
+  initial?: LookAngles;
+}
+interface LookInput {
+  requestPointerLock(): Promise<boolean>;
+  getState(): LookState;
+  reset(): void;
+  dispose(): void;
+}
+function createLookInput(options: LookInputOptions): LookInput;
+```
+
+The controller listens immediately but requests pointer lock **only** when the caller invokes
+`requestPointerLock()` directly from a user gesture. Render a real enable/resume control and call
+it there. The returned promise settles `true` on acquisition and `false` on denial, unavailable
+support, cancellation or another element acquiring the lock. Concurrent requests share one promise.
+An already-owned lock returns `true`; a disposed controller returns `false`.
+
+`onChange` receives fresh absolute angles in radians. Horizontal mouse movement or touch dragging
+subtracts from yaw; vertical movement subtracts from pitch. Yaw never wraps or clamps. Pitch clamps
+to `[-pitchLimit, pitchLimit]`; its default cap is `PI/2`. `sensitivity` defaults to `0.002` radians
+per CSS pixel and must be finite and positive. `initial` defaults to zero angles, must be finite,
+and its pitch is clamped immediately. Non-finite movement is ignored. Heading survives every reset.
+There is no animation loop or persisted state.
+
+Unlocked mouse movement does nothing. Touch look claims one pointer after the host rectangle,
+interactive-control exclusions (the same as the joystick), and optional `claimArea` pass. Only touch
+is accepted; pen and mouse presses never begin a drag. Use disjoint joystick/look claim areas with
+the same registry. `ownership` defaults to `pointerOwnership`; `owner` defaults to a unique generated
+name. If supplying names, use different names for different subsystems. A second pointer cannot
+steal or end the current gesture. Pointer end, cancellation or an externally released claim stops
+only the corresponding look drag; movement and action pointers retain their owners. The host should
+set `touch-action: none` so native scrolling does not cancel a gameplay drag.
+
+`onReset` lets the game clear held movement/actions after Escape, window blur, lock loss, denial,
+`reset()` or disposal. Lock acquisition retains keyboard movement. `onLockChange` reports only this
+controller's lock-state transitions. `onLockError` reports a failed pending request, without exposing
+browser-specific error text. Escape and blur release this element's lock. `reset()` cancels a touch
+and any pending acquisition but retains an already-active lock. Dispose releases this element's
+active lock and listeners; it never exits another element's lock. A cancelled pending acquisition
+keeps only result listeners until the browser replies, exits a late grant, and resolves `false`.
+An older request's promise rejection cannot reject a later attempt.
+
+`getState()` returns a fresh `{ yaw, pitch, locked }` object. Connect `onChange` to your camera state
+and `onReset` to your held-action store; the package never imports a renderer or decides gameplay.
+Call `dispose()` when the host leaves its scene. Multiple controllers use their own document/window
+and do not react to another controller's lock errors or clear another owner's pointers.
+
+The keyboard co-map clears its last held vector on Escape, blur, loss/transfer of an existing
+pointer lock, disabling or unmount. Acquisition does not clear it. Changing only `onChange` preserves
+held input and routes subsequent changes to the latest callback.

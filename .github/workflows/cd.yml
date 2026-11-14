@@ -75,6 +75,6 @@ jobs:
       - if: steps.release.outputs.tag != ''
         run: pnpm exec playwright install --with-deps chromium
       - if: steps.release.outputs.tag != ''
-        run: pnpm verify
+        run: xvfb-run -a pnpm verify
       - if: steps.release.outputs.tag != ''
         run: npm publish --access public --provenance

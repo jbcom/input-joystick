@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export interface KeyboardVector {
   x: number;
@@ -40,32 +40,56 @@ export function useKeyboardVectorMap({
   keys = DEFAULT_KEYS,
   disabled = false,
 }: KeyboardVectorMapOptions): void {
+  const callback = useRef(onChange);
+  callback.current = onChange;
   useEffect(() => {
     if (disabled) return undefined;
 
+    let active = false;
+    let previousLock = document.pointerLockElement;
+    const clear = () => {
+      if (!active) return;
+      active = false;
+      callback.current({ x: 0, y: 0 });
+    };
+    const onLockChange = () => {
+      const next = document.pointerLockElement;
+      if (previousLock && previousLock !== next) clear();
+      previousLock = next;
+    };
     const isTextInput = (target: EventTarget | null) =>
       target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clear();
+        return;
+      }
       if (isTextInput(event.target)) return;
       if (event.repeat) return;
       const vector = keys[event.key];
       if (!vector) return;
       event.preventDefault();
-      onChange(vector);
+      active = true;
+      callback.current(vector);
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (isTextInput(event.target)) return;
       if (!(event.key in keys)) return;
-      onChange({ x: 0, y: 0 });
+      clear();
     };
 
+    window.addEventListener("blur", clear);
+    document.addEventListener("pointerlockchange", onLockChange);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     return () => {
+      clear();
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [disabled, keys, onChange]);
+  }, [disabled, keys]);
 }
