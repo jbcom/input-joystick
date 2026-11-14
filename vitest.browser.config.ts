@@ -8,7 +8,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ["tests/FloatingJoystick.test.tsx", "tests/lookInput.browser.test.ts"],
+    include: [
+      "tests/FloatingJoystick.test.tsx",
+      "tests/lookInput.test.ts",
+      "tests/lookInput.browser.test.ts",
+    ],
     passWithNoTests: false,
     browser: {
       enabled: true,
@@ -44,7 +48,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["src/FloatingJoystick.tsx"],
+      include: ["src/FloatingJoystick.tsx", "src/lookInput.ts"],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/browser",
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
