@@ -296,3 +296,16 @@ test("generated owner names isolate look controllers sharing one registry", () =
   expect(a.onChange).toHaveBeenCalledTimes(1);
   expect(b.onChange).not.toHaveBeenCalled();
 });
+
+test("disposal clears lock state even when the browser reports exit asynchronously", async () => {
+  const { input, element, onLockChange } = setup();
+  const pending = input.requestPointerLock();
+  lock(element);
+  await pending;
+  document.exitPointerLock = vi.fn();
+  input.dispose();
+  expect(input.getState().locked).toBe(false);
+  expect(onLockChange).toHaveBeenLastCalledWith(false);
+  lock(null);
+  expect(input.getState().locked).toBe(false);
+});

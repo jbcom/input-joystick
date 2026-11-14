@@ -227,7 +227,11 @@ export function createLookInput({
       win.removeEventListener("blur", onBlur);
       doc.removeEventListener("keydown", onKey);
       doc.removeEventListener("mousemove", onMouse);
-      if (locked) doc.exitPointerLock();
+      if (locked) {
+        locked = false;
+        doc.exitPointerLock();
+        onLockChange?.(false);
+      }
       // Keep just lock-result listeners until a pending request settles: a late grant must exit.
       if (!pending) detachLock();
     },
