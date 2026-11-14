@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/jbcom/input-joystick/compare/v0.4.0...v0.5.0) (2026-11-14)
+
+
+### Features
+
+* add captured mouse drag look fallback ([d0cbc5a](https://github.com/jbcom/input-joystick/commit/d0cbc5a8f5e70d6b3b9bc87af8364d2097b5acac))
+* add captured mouse drag look fallback ([8fe52b3](https://github.com/jbcom/input-joystick/commit/8fe52b305ec67b19043de2dd4c0b3ba7a73f8ae6))
+
 ## [0.4.0](https://github.com/jbcom/input-joystick/compare/v0.3.0...v0.4.0) (2026-11-14)
 
 
