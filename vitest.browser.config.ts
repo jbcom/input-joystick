@@ -25,6 +25,22 @@ export default defineConfig({
         },
       }),
       instances: [{ browser: "chromium" }],
+      commands: {
+        async lookMouse({ page, iframe }, phase: "start" | "move" | "end" | "hover") {
+          const box = await iframe.getByTestId("look-surface").boundingBox();
+          if (!box) throw new Error("Look surface has no bounds");
+          const positions = {
+            start: [80, 100],
+            move: [150, 130],
+            end: [350, 150],
+            hover: [170, 100],
+          } as const;
+          const [x, y] = positions[phase];
+          await page.mouse.move(box.x + x, box.y + y);
+          if (phase === "start") await page.mouse.down();
+          if (phase === "end") await page.mouse.up();
+        },
+      },
     },
     coverage: {
       provider: "v8",

@@ -1,7 +1,13 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
+import { commands, page } from "vitest/browser";
 import { createLookInput } from "../src/lookInput";
 import { createPointerOwnership } from "../src/pointerOwnership";
+
+declare module "vitest/browser" {
+  interface BrowserCommands {
+    lookMouse(phase: "start" | "move" | "end" | "hover"): Promise<void>;
+  }
+}
 
 const disposals: Array<() => void> = [];
 afterEach(() => {
@@ -76,4 +82,37 @@ test("real PointerEvents keep movement and look independent during touch cancell
   expect(ownership.ownerOf(1)).toBe("move");
   window.dispatchEvent(event("pointermove", 2, 50));
   expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+test("mouse fallback captures a deliberate drag, leaves controls alone and releases outside the host", async () => {
+  const element = document.createElement("div");
+  element.dataset.testid = "look-surface";
+  element.style.cssText = "width: 300px; height: 200px; touch-action: none";
+  const control = document.createElement("button");
+  control.textContent = "Open controls";
+  element.append(control);
+  document.body.append(element);
+  const onChange = vi.fn();
+  const ownership = createPointerOwnership();
+  const input = createLookInput({ element, ownership, onChange, allowMouseDrag: true });
+  disposals.push(input.dispose);
+  let mouseId = 0;
+  element.addEventListener("pointerdown", (event) => {
+    mouseId = event.pointerId;
+  });
+  await page.getByRole("button", { name: "Open controls" }).click();
+  expect(ownership.ownerOf(mouseId)).toBeUndefined();
+  expect(onChange).not.toHaveBeenCalled();
+  await commands.lookMouse("start");
+  expect(element.hasPointerCapture(mouseId)).toBe(true);
+  expect(ownership.ownerOf(mouseId)).toBeDefined();
+  await commands.lookMouse("move");
+  expect(input.getState().yaw).toBeLessThan(0);
+  expect(input.getState().locked).toBe(false);
+  await commands.lookMouse("end");
+  expect(ownership.ownerOf(mouseId)).toBeUndefined();
+  expect(element.hasPointerCapture(mouseId)).toBe(false);
+  const heading = input.getState().yaw;
+  await commands.lookMouse("hover");
+  expect(input.getState().yaw).toBe(heading);
 });

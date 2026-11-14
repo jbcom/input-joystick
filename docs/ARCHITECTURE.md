@@ -115,3 +115,10 @@ headless Chromium has no focused native view and rejects pointer lock with `Wron
 instead asserts the exact native denial and reset callback. It is not acquisition proof. Browser
 processes always use `--mute-audio`; headless execution is enabled only by explicit render-host
 configuration, while Linux CI and release verification use Xvfb with headed Chromium.
+
+Mouse drag is an explicit opt-in (`allowMouseDrag`, false by default), using the same gesture state
+and ownership checks as touch. It captures the primary mouse pointer after claiming; capture loss,
+external ownership release and a move with no held buttons end the gesture. UI controls and editable
+content cannot start look. Acquiring pointer lock releases the captured gesture before relative
+mouse deltas become active, so the two paths cannot double count a movement. Mouse drag never
+requests pointer lock and works after denial without another permission attempt.

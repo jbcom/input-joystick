@@ -12,6 +12,9 @@ function setup(options: Partial<Parameters<typeof createLookInput>[0]> = {}) {
     ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
   const request = vi.fn(() => Promise.resolve());
   element.requestPointerLock = request;
+  element.setPointerCapture = vi.fn();
+  element.hasPointerCapture = vi.fn(() => false);
+  element.releasePointerCapture = vi.fn();
   const onChange = vi.fn();
   const onReset = vi.fn();
   const onLockChange = vi.fn();
@@ -55,6 +58,7 @@ function pointer(
       clientY: y,
       pointerType,
       button: 0,
+      buttons: type === "pointermove" ? 1 : 0,
     })
   );
 }
@@ -308,4 +312,113 @@ test("disposal clears lock state even when the browser reports exit asynchronous
   expect(onLockChange).toHaveBeenLastCalledWith(false);
   lock(null);
   expect(input.getState().locked).toBe(false);
+});
+
+test("opt-in mouse drag remains available after denial and never requests lock automatically", async () => {
+  const { input, element, request, onChange } = setup({ allowMouseDrag: true });
+  const pending = input.requestPointerLock();
+  document.dispatchEvent(new Event("pointerlockerror"));
+  expect(await pending).toBe(false);
+  pointer(element, "pointerdown", 9, 150, 50, "mouse");
+  pointer(window, "pointermove", 9, 180, 70, "mouse");
+  expect(input.getState()).toEqual({ yaw: -0.06, pitch: -0.04, locked: false });
+  expect(request).toHaveBeenCalledTimes(1);
+  pointer(window, "pointerup", 9, 180, 70, "mouse");
+  pointer(window, "pointermove", 9, 190, 80, "mouse");
+  expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+test("mouse drag rejects UI and other owners, accepts only primary mouse button, and cancels independently", () => {
+  const ownership = createPointerOwnership();
+  const { input, element, onChange } = setup({ allowMouseDrag: true, ownership });
+  const button = document.createElement("button");
+  element.append(button);
+  pointer(button, "pointerdown", 1, 150, 50, "mouse");
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  ownership.claim(2, "ui");
+  pointer(element, "pointerdown", 2, 150, 50, "mouse");
+  pointer(window, "pointermove", 2, 180, 60, "mouse");
+  expect(onChange).not.toHaveBeenCalled();
+  element.dispatchEvent(
+    Object.assign(new Event("pointerdown", { bubbles: true }), {
+      pointerId: 3,
+      pointerType: "mouse",
+      button: 2,
+      clientX: 150,
+      clientY: 50,
+    })
+  );
+  expect(ownership.ownerOf(3)).toBeUndefined();
+  pointer(element, "pointerdown", 4, 150, 50, "mouse");
+  pointer(window, "pointercancel", 99);
+  expect(ownership.ownerOf(4)).toBe("look");
+  pointer(window, "pointercancel", 4);
+  expect(ownership.ownerOf(2)).toBe("ui");
+  pointer(window, "pointermove", 4, 180, 60, "mouse");
+  expect(onChange).not.toHaveBeenCalled();
+  input.dispose();
+});
+
+test("acquiring lock drops a mouse drag so absolute and relative events cannot double count", async () => {
+  const ownership = createPointerOwnership();
+  const { input, element, onChange } = setup({ allowMouseDrag: true, ownership });
+  pointer(element, "pointerdown", 1, 150, 50, "mouse");
+  expect(ownership.ownerOf(1)).toBe("look");
+  const pending = input.requestPointerLock();
+  lock(element);
+  expect(await pending).toBe(true);
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  pointer(window, "pointermove", 1, 180, 80, "mouse");
+  expect(onChange).not.toHaveBeenCalled();
+  document.dispatchEvent(Object.assign(new Event("mousemove"), { movementX: 30, movementY: 30 }));
+  expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+test("capture loss, externally released ownership and missing-button moves end mouse drag", () => {
+  const { input, element, onChange } = setup({ allowMouseDrag: true });
+  const captured = new Set<number>();
+  element.setPointerCapture = vi.fn((id: number) => {
+    captured.add(id);
+  });
+  element.hasPointerCapture = vi.fn((id: number) => captured.has(id));
+  element.releasePointerCapture = vi.fn((id: number) => {
+    captured.delete(id);
+  });
+  pointer(element, "pointerdown", 1, 150, 50, "mouse");
+  pointer(element, "lostpointercapture", 1, 150, 50, "mouse");
+  expect(element.releasePointerCapture).toHaveBeenCalledWith(1);
+  pointer(window, "pointermove", 1, 180, 80, "mouse");
+  expect(onChange).not.toHaveBeenCalled();
+  pointer(element, "pointerdown", 2, 150, 50, "mouse");
+  window.dispatchEvent(
+    Object.assign(new Event("pointermove"), {
+      pointerId: 2,
+      pointerType: "mouse",
+      buttons: 0,
+      clientX: 180,
+      clientY: 80,
+    })
+  );
+  expect(element.releasePointerCapture).toHaveBeenCalledWith(2);
+  expect(onChange).not.toHaveBeenCalled();
+  pointer(element, "pointerdown", 3, 150, 50, "mouse");
+  input.reset();
+  expect(captured.size).toBe(0);
+});
+
+test("mouse capture failures release the claim; contenteditable and pen never begin fallback", () => {
+  const ownership = createPointerOwnership();
+  const { element } = setup({ allowMouseDrag: true, ownership });
+  const field = document.createElement("div");
+  field.setAttribute("contenteditable", "true");
+  element.append(field);
+  pointer(field, "pointerdown", 1, 150, 50, "mouse");
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  pointer(element, "pointerdown", 2, 150, 50, "pen");
+  expect(ownership.ownerOf(2)).toBeUndefined();
+  element.setPointerCapture = vi.fn(() => {
+    throw new DOMException("Pointer ended", "NotFoundError");
+  });
+  pointer(element, "pointerdown", 3, 150, 50, "mouse");
+  expect(ownership.ownerOf(3)).toBeUndefined();
 });
