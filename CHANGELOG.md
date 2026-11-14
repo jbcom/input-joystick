@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/jbcom/input-joystick/compare/v0.3.0...v0.4.0) (2026-11-14)
+
+
+### Features
+
+* add intentional pointer lock and independent touch look ([d8d557e](https://github.com/jbcom/input-joystick/commit/d8d557e116ae1f2495e53304da74b5e09e105c4b))
+* add intentional pointer lock and independent touch look ([5ac2067](https://github.com/jbcom/input-joystick/commit/5ac2067c178e3c5ca3585e23bfeb58d697d341f9))
+
+
+### Bug Fixes
+
+* clear disposed look state before asynchronous lock exit ([52b0449](https://github.com/jbcom/input-joystick/commit/52b044905f604ac25fd91730b7669b0d5c2d4d77))
+
 ## [0.3.0](https://github.com/jbcom/input-joystick/compare/v0.2.2...v0.3.0) (2026-10-10)
 
 
