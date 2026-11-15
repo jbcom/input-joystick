@@ -112,6 +112,9 @@ test("cancel, capture loss, blur, explicit overlay reset and disposal discard he
   window.dispatchEvent(new Event("blur"));
   pointer(window, "pointerup");
   pointer(element, "pointerdown");
+  element.dispatchEvent(new Event("blur"));
+  pointer(window, "pointerup");
+  pointer(element, "pointerdown");
   input.reset();
   pointer(window, "pointerup");
   pointer(element, "pointerdown");

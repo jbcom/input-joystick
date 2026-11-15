@@ -93,7 +93,7 @@ export function createTapInput({
   win.addEventListener("pointerup", onUp, true);
   win.addEventListener("pointercancel", onCancel, true);
   win.addEventListener("lostpointercapture", onCancel, true);
-  win.addEventListener("blur", reset);
+  win.addEventListener("blur", reset, true);
   let disposed = false;
   return {
     reset,
@@ -106,7 +106,7 @@ export function createTapInput({
       win.removeEventListener("pointerup", onUp, true);
       win.removeEventListener("pointercancel", onCancel, true);
       win.removeEventListener("lostpointercapture", onCancel, true);
-      win.removeEventListener("blur", reset);
+      win.removeEventListener("blur", reset, true);
     },
   };
 }
