@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/jbcom/input-joystick/compare/v0.7.0...v0.7.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* cancel locked taps after relative mouse excursion ([5e84d66](https://github.com/jbcom/input-joystick/commit/5e84d662ca0dfd264b7ca3f597e8dc0370b718c4))
+* cancel locked taps after relative mouse excursion ([96dac45](https://github.com/jbcom/input-joystick/commit/96dac45eaca58dfb489eb8027f17427e2ca3c92e))
+
 ## [0.7.0](https://github.com/jbcom/input-joystick/compare/v0.6.0...v0.7.0) (2026-11-15)
 
 
