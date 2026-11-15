@@ -29,9 +29,20 @@ export function createTapInput({
   if (!Number.isFinite(maxDistance) || maxDistance < 0) {
     throw new RangeError("maxDistance must be finite and nonnegative");
   }
-  const win = element.ownerDocument.defaultView;
+  const doc = element.ownerDocument;
+  const win = doc.defaultView;
   if (!win) throw new Error("element must belong to a window");
-  const held = new Map<number, { x: number; y: number; cancelled: boolean }>();
+  const held = new Map<
+    number,
+    {
+      x: number;
+      y: number;
+      pointerType: string;
+      relativeX: number;
+      relativeY: number;
+      cancelled: boolean;
+    }
+  >();
   const reset = () => held.clear();
   const accepts = (event: PointerEvent) => {
     if (!element.isConnected) return false;
@@ -57,7 +68,14 @@ export function createTapInput({
     // Only eligible region contacts participate: a held movement finger is independent.
     const cancelled = held.size > 0;
     for (const candidate of held.values()) candidate.cancelled = true;
-    held.set(event.pointerId, { x: event.clientX, y: event.clientY, cancelled });
+    held.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+      pointerType: event.pointerType,
+      relativeX: 0,
+      relativeY: 0,
+      cancelled,
+    });
   };
   const track = (event: PointerEvent) => {
     const candidate = held.get(event.pointerId);
@@ -68,6 +86,19 @@ export function createTapInput({
       if (!Number.isFinite(distance) || distance > maxDistance) candidate.cancelled = true;
     }
     if (event.pointerType === "mouse" && event.buttons === 0) candidate.cancelled = true;
+  };
+  const trackLockedMouse = (event: MouseEvent) => {
+    if (doc.pointerLockElement !== element) return;
+    for (const candidate of held.values()) {
+      if (candidate.pointerType !== "mouse") continue;
+      // Locked client coordinates are fixed. Consume mousemove deltas once, not again on pointermove.
+      candidate.relativeX += event.movementX;
+      candidate.relativeY += event.movementY;
+      const distance = Math.hypot(candidate.relativeX, candidate.relativeY);
+      if (!Number.isFinite(distance) || distance > maxDistance || event.buttons === 0) {
+        candidate.cancelled = true;
+      }
+    }
   };
   const onUp = (event: PointerEvent) => {
     const candidate = held.get(event.pointerId);
@@ -94,6 +125,8 @@ export function createTapInput({
   win.addEventListener("pointercancel", onCancel, true);
   win.addEventListener("lostpointercapture", onCancel, true);
   win.addEventListener("blur", reset, true);
+  doc.addEventListener("mousemove", trackLockedMouse, true);
+  doc.addEventListener("pointerlockchange", reset);
   let disposed = false;
   return {
     reset,
@@ -107,6 +140,8 @@ export function createTapInput({
       win.removeEventListener("pointercancel", onCancel, true);
       win.removeEventListener("lostpointercapture", onCancel, true);
       win.removeEventListener("blur", reset, true);
+      doc.removeEventListener("mousemove", trackLockedMouse, true);
+      doc.removeEventListener("pointerlockchange", reset);
     },
   };
 }

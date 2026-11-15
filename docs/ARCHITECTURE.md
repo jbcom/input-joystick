@@ -145,3 +145,10 @@ ends cannot produce a second action. Cancellation and lifecycle reset do not cal
 The application owns overlay/focus policy and resets the observer at those transitions, then
 disposes it on unmount. No game-specific targets, reach, storage, renderer or world actions live in
 this module.
+
+Locked mouse candidates also retain a relative displacement accumulator. The host document's
+`mousemove` stream is the sole relative-motion source while that host owns pointer lock; absolute
+pointer positions are fixed in that state. Exceeding the same excursion threshold irreversibly
+cancels the candidate even if later deltas return to the origin. Touch and pen candidates never
+consume mouse deltas. Lock-change events reset the set before another coordinate regime can
+complete a held gesture. Neither integration path changes ownership or camera angles.
