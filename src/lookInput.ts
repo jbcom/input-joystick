@@ -1,7 +1,7 @@
 import type { ClaimArea } from "./claimArea.js";
 import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
 
-/** Radians; yaw is deliberately unbounded. Positive deltas look left/up. */
+/** Angles in radians; yaw is deliberately unbounded. Renderer coordinates belong to the consumer. */
 export interface LookAngles {
   yaw: number;
   pitch: number;
@@ -23,6 +23,8 @@ export interface LookInputOptions {
   claimArea?: ClaimArea;
   /** Opt in to unlocked primary-button mouse drag (including after lock denial). Defaults to false. */
   allowMouseDrag?: boolean;
+  /** Reverse physical vertical mouse/touch deltas. Defaults to false; semantic look commands are unchanged. */
+  invertY?: boolean;
   /** Radians per CSS pixel. Defaults to 0.002. */
   sensitivity?: number;
   /** Absolute pitch cap in radians, in (0, PI/2]. Defaults to PI/2. */
@@ -33,6 +35,12 @@ export interface LookInput {
   /** Call directly from an intentional user gesture. Never called automatically. */
   requestPointerLock(): Promise<boolean>;
   getState(): LookState;
+  /** Add semantic camera angles in radians, independent of pointer sensitivity/inversion. */
+  lookBy(delta: LookAngles): void;
+  /** Apply to subsequent physical movement without resetting heading or held pointers. */
+  setInvertY(inverted: boolean): void;
+  /** Radians per CSS pixel; finite and positive. Does not reset held input. */
+  setSensitivity(radiansPerPixel: number): void;
   /** Cancel held look and notify onReset, retaining heading. Also cancels pending lock. */
   reset(): void;
   /** Release this controller's resources and its lock, never another element's. Idempotent. */
@@ -40,6 +48,12 @@ export interface LookInput {
 }
 
 let nextOwner = 0;
+
+function validateSensitivity(value: number) {
+  if (!(Number.isFinite(value) && value > 0)) {
+    throw new RangeError("sensitivity must be finite and positive");
+  }
+}
 
 /** DOM input only: no renderer, React, storage, animation loop or automatic lock request. */
 export function createLookInput({
@@ -52,13 +66,12 @@ export function createLookInput({
   owner = `look-${nextOwner++}`,
   claimArea,
   allowMouseDrag = false,
+  invertY = false,
   sensitivity = 0.002,
   pitchLimit = Math.PI / 2,
   initial = { yaw: 0, pitch: 0 },
 }: LookInputOptions): LookInput {
-  if (!(Number.isFinite(sensitivity) && sensitivity > 0)) {
-    throw new RangeError("sensitivity must be finite and positive");
-  }
+  validateSensitivity(sensitivity);
   if (!(pitchLimit > 0 && pitchLimit <= Math.PI / 2)) {
     throw new RangeError("pitchLimit must be in (0, PI/2]");
   }
@@ -91,13 +104,16 @@ export function createLookInput({
     if (pending) pending.cancelled = true;
     onReset?.();
   };
-  const move = (x: number, y: number) => {
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const lookBy = (delta: LookAngles) => {
+    if (disposed || !Number.isFinite(delta.yaw) || !Number.isFinite(delta.pitch)) return;
     angles = {
-      yaw: angles.yaw - x * sensitivity,
-      pitch: Math.max(-pitchLimit, Math.min(pitchLimit, angles.pitch - y * sensitivity)),
+      yaw: angles.yaw + delta.yaw,
+      pitch: Math.max(-pitchLimit, Math.min(pitchLimit, angles.pitch + delta.pitch)),
     };
     onChange({ ...angles });
+  };
+  const move = (x: number, y: number) => {
+    lookBy({ yaw: -x * sensitivity, pitch: (invertY ? y : -y) * sensitivity });
   };
   const finish = (success: boolean) => {
     const attempt = pending;
@@ -213,6 +229,14 @@ export function createLookInput({
   }
   return {
     getState: () => ({ ...angles, locked }),
+    lookBy,
+    setInvertY(inverted) {
+      invertY = inverted;
+    },
+    setSensitivity(radiansPerPixel) {
+      validateSensitivity(radiansPerPixel);
+      sensitivity = radiansPerPixel;
+    },
     requestPointerLock() {
       if (disposed) return Promise.resolve(false);
       if (locked) return Promise.resolve(true);

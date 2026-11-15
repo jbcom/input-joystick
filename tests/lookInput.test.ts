@@ -422,3 +422,77 @@ test("mouse capture failures release the claim; contenteditable and pen never be
   pointer(element, "pointerdown", 3, 150, 50, "mouse");
   expect(ownership.ownerOf(3)).toBeUndefined();
 });
+
+test("invertY reverses physical vertical deltas for locked mouse, touch and mouse drag only", async () => {
+  const a = setup({ invertY: true, sensitivity: 0.1 });
+  const pending = a.input.requestPointerLock();
+  lock(a.element);
+  await pending;
+  document.dispatchEvent(Object.assign(new Event("mousemove"), { movementX: 2, movementY: 3 }));
+  expect(a.input.getState().yaw).toBeCloseTo(-0.2);
+  expect(a.input.getState().pitch).toBeCloseTo(0.3);
+  expect(a.input.getState().locked).toBe(true);
+  a.input.dispose();
+  for (const pointerType of ["touch", "mouse"]) {
+    const { input, element } = setup({ invertY: true, sensitivity: 0.1, allowMouseDrag: true });
+    pointer(element, "pointerdown", 1, 150, 50, pointerType);
+    pointer(window, "pointermove", 1, 152, 53, pointerType);
+    expect(input.getState().yaw).toBeCloseTo(-0.2);
+    expect(input.getState().pitch).toBeCloseTo(0.3);
+    input.dispose();
+  }
+});
+
+test("live look settings preserve heading, held ownership and callbacks, then affect only subsequent physical movement", () => {
+  const ownership = createPointerOwnership();
+  ownership.claim(2, "move");
+  const { input, element, onChange, onReset } = setup({ ownership });
+  pointer(element, "pointerdown", 1, 150, 50);
+  pointer(window, "pointermove", 1, 160, 60);
+  const before = input.getState();
+  input.setInvertY(true);
+  input.setSensitivity(0.004);
+  expect(input.getState()).toEqual(before);
+  expect(onChange).toHaveBeenCalledTimes(1);
+  expect(onReset).not.toHaveBeenCalled();
+  expect(ownership.ownerOf(1)).toBe("look");
+  expect(ownership.ownerOf(2)).toBe("move");
+  pointer(window, "pointermove", 1, 170, 70);
+  expect(input.getState().yaw).toBeCloseTo(-0.06);
+  expect(input.getState().pitch).toBeCloseTo(0.02);
+  input.setInvertY(false);
+  pointer(window, "pointermove", 1, 170, 80);
+  expect(input.getState().pitch).toBeCloseTo(-0.02);
+  expect(() => input.setSensitivity(0)).toThrow(RangeError);
+  expect(() => input.setSensitivity(Number.NaN)).toThrow(RangeError);
+  pointer(window, "pointermove", 1, 180, 80);
+  expect(input.getState().yaw).toBeCloseTo(-0.1);
+});
+
+test("semantic look commands remain directional under inversion and sensitivity, clamp pitch and retain drag", () => {
+  const ownership = createPointerOwnership();
+  const { input, element, onChange, onReset } = setup({
+    invertY: true,
+    sensitivity: 0.5,
+    ownership,
+    pitchLimit: 1,
+  });
+  pointer(element, "pointerdown", 1, 150, 50);
+  input.lookBy({ yaw: 20, pitch: 0.2 });
+  expect(input.getState()).toEqual({ yaw: 20, pitch: 0.2, locked: false });
+  expect(ownership.ownerOf(1)).toBe("look");
+  expect(onReset).not.toHaveBeenCalled();
+  input.lookBy({ yaw: 20, pitch: 5 });
+  expect(input.getState()).toEqual({ yaw: 40, pitch: 1, locked: false });
+  input.lookBy({ yaw: 20, pitch: -5 });
+  expect(input.getState()).toEqual({ yaw: 60, pitch: -1, locked: false });
+  for (const delta of [
+    { yaw: Number.NaN, pitch: 1 },
+    { yaw: 1, pitch: Number.NaN },
+  ])
+    input.lookBy(delta);
+  expect(onChange).toHaveBeenCalledTimes(3);
+  input.dispose();
+  input.lookBy({ yaw: 1, pitch: 1 });
+  expect(onChange).toHaveBeenCalledTimes(3);
+});

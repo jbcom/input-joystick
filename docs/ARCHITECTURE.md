@@ -122,3 +122,9 @@ external ownership release and a move with no held buttons end the gesture. UI c
 content cannot start look. Acquiring pointer lock releases the captured gesture before relative
 mouse deltas become active, so the two paths cannot double count a movement. Mouse drag never
 requests pointer lock and works after denial without another permission attempt.
+
+Physical and semantic look share one angle accumulator and pitch clamp. Mouse/touch deltas first
+pass through the current sensitivity and optional vertical inversion; `lookBy` supplies angular
+offsets directly, so semantic directional controls retain their meaning. Live setters change only
+the physical-input policy and do not rebuild listeners, drop ownership, alter heading or issue
+callbacks. Preferences and persistence remain the consumer's responsibility.
