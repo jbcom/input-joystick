@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/jbcom/input-joystick/compare/v0.6.0...v0.7.0) (2026-11-15)
+
+
+### Features
+
+* observe tap intent alongside joystick and look ([b71e01a](https://github.com/jbcom/input-joystick/commit/b71e01a8b7946c38c664040e98417840b98d370d))
+* observe tap intent alongside joystick and look ([7cb2377](https://github.com/jbcom/input-joystick/commit/7cb237788662d73990cf5020d57b5cd860232ba6))
+
+
+### Bug Fixes
+
+* clear tap candidates on descendant focus loss ([e9c0006](https://github.com/jbcom/input-joystick/commit/e9c00068e05035782bf5df42d740d43af2672706))
+
 ## [0.6.0](https://github.com/jbcom/input-joystick/compare/v0.5.0...v0.6.0) (2026-11-15)
 
 
