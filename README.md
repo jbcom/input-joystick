@@ -17,7 +17,8 @@ means and how the joystick looks.
   knob at the touch origin.
 - `createLookInput`: a renderer-neutral mouse pointer-lock and touch-look controller with unbounded
   yaw, clamped pitch, explicit acquisition, optional primary-button mouse-drag fallback, and
-  independent pointer ownership.
+  independent pointer ownership. Live sensitivity and vertical inversion preserve held gestures;
+  semantic keyboard/HTML look commands retain their declared direction.
 - `normalizeJoystick`: the pure deadzone, clamp and normalize function, usable without React or a
   DOM.
 - `useKeyboardVectorMap`: an opt-in WASD and arrow-key co-map that emits the same `{ x, y }` shape,

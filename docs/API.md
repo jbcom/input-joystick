@@ -300,6 +300,7 @@ interface LookInputOptions {
   owner?: string;
   claimArea?: ClaimArea;
   allowMouseDrag?: boolean;
+  invertY?: boolean;
   sensitivity?: number;
   pitchLimit?: number;
   initial?: LookAngles;
@@ -307,6 +308,9 @@ interface LookInputOptions {
 interface LookInput {
   requestPointerLock(): Promise<boolean>;
   getState(): LookState;
+  lookBy(delta: LookAngles): void;
+  setInvertY(inverted: boolean): void;
+  setSensitivity(radiansPerPixel: number): void;
   reset(): void;
   dispose(): void;
 }
@@ -363,3 +367,25 @@ and do not react to another controller's lock errors or clear another owner's po
 The keyboard co-map clears its last held vector on Escape, blur, loss/transfer of an existing
 pointer lock, disabling or unmount. Acquisition does not clear it. Changing only `onChange` preserves
 held input and routes subsequent changes to the latest callback.
+
+### Live look preferences and semantic commands
+
+`invertY` defaults to `false`. Setting it to `true` reverses only the vertical physical deltas from
+locked mouse movement, captured mouse dragging and touch dragging. It never changes yaw, keyboard
+movement vectors, the current heading or the pitch bounds. `setInvertY(boolean)` changes that policy
+for subsequent physical movement without cancelling a held gesture, releasing any pointer owner,
+requesting pointer lock or calling `onReset`/`onChange`.
+
+`setSensitivity(number)` similarly applies a new positive finite radians-per-CSS-pixel value to
+subsequent physical movement, without resetting input or heading. An invalid value throws
+`RangeError` and preserves the previous value. The application owns preference persistence; the
+controller stores these values only in memory.
+
+`lookBy({ yaw, pitch })` adds semantic camera-angle offsets in radians and applies the same pitch
+bounds and unbounded yaw as pointer movement. It bypasses physical inversion and pixel sensitivity:
+a named keyboard or HTML control for looking up must keep its declared direction when physical
+vertical input is inverted. Consumers convert their own turn/radian units at the boundary and route
+those semantic commands here instead of reimplementing angle accumulation or recreating a
+controller. It calls `onChange` with fresh absolute angles and preserves held pointer ownership and
+lock state. Non-finite deltas and commands after disposal are ignored. This method does not map keys
+or decide when a game allows a command.

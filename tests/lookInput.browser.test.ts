@@ -94,7 +94,13 @@ test("mouse fallback captures a deliberate drag, leaves controls alone and relea
   document.body.append(element);
   const onChange = vi.fn();
   const ownership = createPointerOwnership();
-  const input = createLookInput({ element, ownership, onChange, allowMouseDrag: true });
+  const input = createLookInput({
+    element,
+    ownership,
+    onChange,
+    allowMouseDrag: true,
+    invertY: true,
+  });
   disposals.push(input.dispose);
   let mouseId = 0;
   element.addEventListener("pointerdown", (event) => {
@@ -108,8 +114,14 @@ test("mouse fallback captures a deliberate drag, leaves controls alone and relea
   expect(ownership.ownerOf(mouseId)).toBeDefined();
   await commands.lookMouse("move");
   expect(input.getState().yaw).toBeLessThan(0);
+  expect(input.getState().pitch).toBeGreaterThan(0);
+  const heldOwner = ownership.ownerOf(mouseId);
+  input.setInvertY(false);
+  input.setSensitivity(0.004);
+  expect(ownership.ownerOf(mouseId)).toBe(heldOwner);
   expect(input.getState().locked).toBe(false);
   await commands.lookMouse("end");
+  expect(input.getState().pitch).toBeLessThan(0);
   expect(ownership.ownerOf(mouseId)).toBeUndefined();
   expect(element.hasPointerCapture(mouseId)).toBe(false);
   const heading = input.getState().yaw;
