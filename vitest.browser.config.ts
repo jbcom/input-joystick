@@ -11,6 +11,8 @@ export default defineConfig({
     include: [
       "tests/FloatingJoystick.test.tsx",
       "tests/lookInput.test.ts",
+      "tests/tapInput.test.ts",
+      "tests/tapInput.browser.test.ts",
       "tests/lookInput.browser.test.ts",
     ],
     passWithNoTests: false,
@@ -48,7 +50,7 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["src/FloatingJoystick.tsx", "src/lookInput.ts"],
+      include: ["src/FloatingJoystick.tsx", "src/lookInput.ts", "src/tapInput.ts"],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/browser",
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },

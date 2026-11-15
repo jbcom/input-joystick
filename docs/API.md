@@ -11,6 +11,9 @@ import {
   claimWidthFraction,
   createPointerOwnership,
   createLookInput,
+  createTapInput,
+  type TapInput,
+  type TapInputOptions,
   type LookAngles,
   type LookState,
   type LookInput,
@@ -389,3 +392,45 @@ those semantic commands here instead of reimplementing angle accumulation or rec
 controller. It calls `onChange` with fresh absolute angles and preserves held pointer ownership and
 lock state. Non-finite deltas and commands after disposal are ignored. This method does not map keys
 or decide when a game allows a command.
+
+## `createTapInput`
+
+```ts
+interface TapInputOptions {
+  element: HTMLElement;
+  claimArea?: ClaimArea;
+  maxDistance?: number;
+  onTap: (event: PointerEvent) => void;
+}
+interface TapInput {
+  reset(): void;
+  dispose(): void;
+}
+function createTapInput(options: TapInputOptions): TapInput;
+```
+
+Observes mouse primary-button, touch and pen taps, delivering the original `pointerup` exactly
+once. It does not claim ownership, capture pointers, prevent browser defaults, synthesize clicks,
+request pointer lock or submit game actions. `maxDistance` defaults to 8 CSS pixels, must be finite
+and nonnegative, and measures maximum excursion from the press, including coalesced move samples
+and the release position. Moving away and back is a drag, even if the final distance is zero.
+
+Presses and releases must be inside a connected, nonzero-size host and pass `claimArea` when
+provided. Interactive controls, editable content and `[data-joystick-ignore]` are excluded. Use
+`claimArea` to exclude movement controls; a finger held outside the eligible region does not cancel
+an action-region tap. Nonprimary touch contacts are accepted, allowing a second finger to tap
+while the first holds the movement joystick. Two overlapping eligible region contacts cancel each
+other, including the last remaining contact; no tap is emitted until a fresh single press.
+
+Cancellation, capture loss and window blur discard the affected candidate or all held candidates.
+A missing-button mouse move cancels its candidate. Call `reset()` when opening an overlay,
+changing focus/input mode or replacing a scene, so a held press cannot act after the transition.
+Call `dispose()` on unmount; it removes all listeners and is safe to repeat. There is no click or
+double-click listener: repeated release events cannot repeat a tap. Separate completed taps each
+produce their own callback.
+
+The observer shares a gesture with `createLookInput`: movement beyond the threshold becomes look
+without a tap, while a stationary release can become an action. Capture-phase window listeners
+observe release before look's bubble-phase cleanup releases mouse capture. Registration order does
+not change that result. A camera or world binding belongs to the caller; under pointer lock the
+caller may use its current center ray instead of the event's absolute coordinates.

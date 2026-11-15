@@ -128,3 +128,20 @@ pass through the current sensitivity and optional vertical inversion; `lookBy` s
 offsets directly, so semantic directional controls retain their meaning. Live setters change only
 the physical-input policy and do not rebuild listeners, drop ownership, alter heading or issue
 callbacks. Preferences and persistence remain the consumer's responsibility.
+
+## Tap intent lifecycle
+
+`createTapInput` is a DOM observer, separate from pointer ownership. It keeps press coordinates and
+an irreversible cancellation flag per eligible pointer. Every delivered and coalesced move sample
+is checked against the original press, so an out-and-back drag cannot masquerade as a tap. Only
+contacts accepted by host/control/claim-area checks enter this set: the movement finger outside
+that region does not suppress an action finger, regardless of `isPrimary`. Overlapping eligible
+contacts invalidate every member until each ends.
+
+The observer neither captures nor releases pointers. Window capture-phase move, up, cancel and
+lost-capture listeners operate before look's bubble-phase end handler. A valid up is removed from
+the set before its callback or any look-induced capture release, so reentrant resets and duplicate
+ends cannot produce a second action. Cancellation and lifecycle reset do not call `onTap`.
+The application owns overlay/focus policy and resets the observer at those transitions, then
+disposes it on unmount. No game-specific targets, reach, storage, renderer or world actions live in
+this module.

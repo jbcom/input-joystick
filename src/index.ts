@@ -15,6 +15,7 @@ export {
   type PointerReleaseListener,
   pointerOwnership,
 } from "./pointerOwnership.js";
+export { createTapInput, type TapInput, type TapInputOptions } from "./tapInput.js";
 export {
   type KeyboardVector,
   type KeyboardVectorMapOptions,
