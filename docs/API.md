@@ -429,6 +429,12 @@ Call `dispose()` on unmount; it removes all listeners and is safe to repeat. The
 double-click listener: repeated release events cannot repeat a tap. Separate completed taps each
 produce their own callback.
 
+While this host owns pointer lock, mouse client coordinates remain fixed. The observer instead
+accumulates `mousemove` relative deltas from each mouse press and retains maximum excursion. A
+locked out-and-back look drag therefore cannot fire a tap at the new aim. Relative deltas are
+consumed once from `mousemove`, rather than double-counting matching `pointermove` events. Any
+`pointerlockchange` discards held candidates, so acquisition or loss cannot complete an old press.
+
 The observer shares a gesture with `createLookInput`: movement beyond the threshold becomes look
 without a tap, while a stationary release can become an action. Capture-phase window listeners
 observe release before look's bubble-phase cleanup releases mouse capture. Registration order does

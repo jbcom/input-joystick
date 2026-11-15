@@ -245,3 +245,53 @@ test("look ownership and synchronous pointerup capture release coexist in either
     look.dispose();
   }
 });
+
+test("locked mouse uses relative maximum excursion with fixed client coordinates and resets on lock changes", () => {
+  const { element, input, onTap } = setup();
+  let locked: Element | null = null;
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => locked });
+  const mouse = (movementX: number, movementY = 0, buttons = 1) => {
+    document.dispatchEvent(
+      Object.assign(new Event("mousemove"), { movementX, movementY, buttons })
+    );
+  };
+  mouse(100); // unlocked motion cannot affect candidates
+  pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  locked = element;
+  document.dispatchEvent(new Event("pointerlockchange"));
+  pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  expect(onTap).not.toHaveBeenCalled();
+  pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  mouse(9);
+  mouse(-9);
+  pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  expect(onTap).not.toHaveBeenCalled();
+  pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  mouse(4, 0);
+  mouse(4, 0);
+  pointer(window, "pointermove", 1, { pointerType: "mouse", movementX: 8 });
+  pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  expect(onTap).toHaveBeenCalledTimes(1); // exact threshold; pointermove does not double count
+  for (const [movementX, movementY, buttons] of [
+    [Number.NaN, 0, 1],
+    [0, Number.NaN, 1],
+    [0, 0, 0],
+  ]) {
+    pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+    mouse(movementX, movementY, buttons);
+    pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  }
+  expect(onTap).toHaveBeenCalledTimes(1);
+  pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  locked = null;
+  document.dispatchEvent(new Event("pointerlockchange"));
+  pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  expect(onTap).toHaveBeenCalledTimes(1);
+  locked = element;
+  pointer(element, "pointerdown", 1); // touch never consumes locked mouse movement
+  mouse(100);
+  pointer(window, "pointerup", 1);
+  expect(onTap).toHaveBeenCalledTimes(2);
+  input.dispose();
+  locked = null;
+});

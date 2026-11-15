@@ -32,6 +32,17 @@ export default defineConfig({
       }),
       instances: [{ browser: "chromium" }],
       commands: {
+        async lockedTapMouse({ page, iframe }, drag: boolean) {
+          const box = await iframe.getByTestId("locked-tap-surface").boundingBox();
+          if (!box) throw new Error("Locked tap surface has no bounds");
+          await page.mouse.move(box.x + 100, box.y + 100);
+          await page.mouse.down();
+          if (drag) {
+            await page.mouse.move(box.x + 180, box.y + 100);
+            await page.mouse.move(box.x + 100, box.y + 100);
+          }
+          await page.mouse.up();
+        },
         async lookMouse({ page, iframe }, phase: "start" | "move" | "end" | "hover") {
           const box = await iframe.getByTestId("look-surface").boundingBox();
           if (!box) throw new Error("Look surface has no bounds");
