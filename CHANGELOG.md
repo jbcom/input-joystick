@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/jbcom/input-joystick/compare/v0.5.0...v0.6.0) (2026-11-15)
+
+
+### Features
+
+* support live look preferences and semantic commands ([54699bc](https://github.com/jbcom/input-joystick/commit/54699bca16cf834bbae0f1ddb65ae0110e31de63))
+* support live look preferences and semantic commands ([9747419](https://github.com/jbcom/input-joystick/commit/9747419781281f96d07a68ba2707c8ff4e2c9948))
+
 ## [0.5.0](https://github.com/jbcom/input-joystick/compare/v0.4.0...v0.5.0) (2026-11-14)
 
 
