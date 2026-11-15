@@ -86,6 +86,7 @@ try {
       'claimWidthFraction',
       'createPointerOwnership',
       'createLookInput',
+      'createTapInput',
     ]) {
       if (typeof api[name] !== 'function') throw new Error('missing export ' + name)
     }

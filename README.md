@@ -109,6 +109,7 @@ focus.
 | `createPointerOwnership()` | function | Makes an isolated `PointerOwnership`: `claim`, `release`, `releaseAll`, `ownerOf`, `clear`, `onRelease`, `attach`. |
 | `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
 | `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
+| `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
 | `normalizeJoystick(raw, radius, deadZone)` | function | Pure deadzone, clamp and normalize math returning a `JoystickVector`. |
