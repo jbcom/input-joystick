@@ -975,6 +975,22 @@ test("with panFromControls the wheel zooms over a control; without it the contro
   expect(strict.changes).toEqual([]);
 });
 
+test("a keyboard or programmatic click, which has no click count, is never swallowed", () => {
+  const { button, clicked } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 140, 100);
+  pointer(win, "pointerup", 1, 140, 100);
+  const keyboard = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 });
+  button.dispatchEvent(keyboard);
+  expect(keyboard.defaultPrevented).toBe(false);
+  expect(clicked).toHaveBeenCalledTimes(1);
+  // The pointer's own click, with a click count, is still swallowed afterwards.
+  const pointerClick = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 });
+  button.dispatchEvent(pointerClick);
+  expect(pointerClick.defaultPrevented).toBe(true);
+  expect(clicked).toHaveBeenCalledTimes(1);
+});
+
 test("disposing disarms a pending click suppression", () => {
   const { button, input, click, clicked } = controlSetup();
   pointer(button, "pointerdown", 1, 100, 100);

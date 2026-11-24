@@ -151,7 +151,8 @@ export function createCameraPanZoomInput({
   const suppressClickOn = (control: Element) => {
     disarmClick();
     const onClick = (event: MouseEvent) => {
-      if (!control.contains(event.target as Node | null)) return;
+      // A keyboard or programmatic click has no click count and is never the lift's own click.
+      if (event.detail === 0 || !control.contains(event.target as Node | null)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       disarmClick();
