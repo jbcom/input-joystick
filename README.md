@@ -109,7 +109,7 @@ focus.
 | Export | Kind | What it does |
 | --- | --- | --- |
 | `FloatingJoystick` | component | Claims one pointer inside its host, emits normalized vectors, draws the ring and knob. |
-| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`, `claimArea`, `ownership`, `owner`. |
+| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`, `claimArea`, `revealDistance`, `ownership`, `owner`. |
 | `claimWidthFraction(side, fraction)` | function | A `ClaimArea` for the `fraction` of the host's width from the `"left"` or `"right"` edge. |
 | `ClaimArea`, `ClaimRect` | types | `(event, rect) => boolean` over the `pointerdown` and the host's rectangle. |
 | `pointerOwnership` | value | The shared `PointerOwnership` registry the joystick uses by default. |

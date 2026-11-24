@@ -28,8 +28,9 @@ Full detail in `docs/ARCHITECTURE.md`.
    checks pass, and the ownership claim is the last check, so a rejected press never holds a claim.
 3. Pointer end, cancel, a claim released from the registry, `disabled` and unmount always report a
    zero vector.
-4. `onChange` and `claimArea` are read through refs; a new callback identity must not re-attach
-   listeners.
+4. `onChange`, `claimArea` and `revealDistance` are read through refs; a new callback identity or
+   distance must not re-attach listeners. `revealDistance` only defers drawing, never the claim or
+   the vector.
 5. No host coupling: accent, host selector and label are props, never read from a CSS custom
    property or a global.
 6. `normalizeJoystick` stays pure and free of DOM and React.

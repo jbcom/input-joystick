@@ -602,3 +602,90 @@ test("the stick gives its claim back on pointerup even when the registry does no
   expect(inner.ownerOf(1)).toBeUndefined();
   await waitFor(() => expect(ring()).toBeNull());
 });
+
+test("revealDistance keeps the ring undrawn until the press passes it, draws it at the origin and keeps it drawn", async () => {
+  const { host, vectors } = mount({ revealDistance: 8 });
+  const wrapper = () => document.querySelector("[data-floating-joystick]");
+  host.dispatchEvent(pointer("pointerdown", { x: 120, y: 140, id: 1 }));
+  window.dispatchEvent(pointer("pointermove", { x: 127.5, y: 140, id: 1 }));
+  // Only the drawing waits: the vector already follows the finger past the dead zone.
+  await waitFor(() => expect(vectors.at(-1)?.magnitude).toBeGreaterThan(0));
+  expect(ring()).toBeNull();
+  expect(wrapper()?.getAttribute("aria-hidden")).toBe("true");
+
+  window.dispatchEvent(pointer("pointermove", { x: 128.5, y: 140, id: 1 }));
+  await waitFor(() => expect(ring()).not.toBeNull());
+  expect(wrapper()?.getAttribute("aria-hidden")).toBe("false");
+  const drawn = ring() as HTMLElement;
+  // At the press origin, not where the finger was when the distance was passed.
+  expect(drawn.style.left).toBe("120px");
+  expect(drawn.style.top).toBe("140px");
+
+  window.dispatchEvent(pointer("pointermove", { x: 122, y: 140, id: 1 }));
+  await waitFor(() => expect(vectors.at(-1)?.magnitude).toBe(0));
+  expect(ring()).not.toBeNull();
+
+  window.dispatchEvent(pointer("pointerup", { x: 122, y: 140, id: 1 }));
+  await waitFor(() => expect(ring()).toBeNull());
+
+  // The next press starts undrawn again.
+  host.dispatchEvent(pointer("pointerdown", { x: 200, y: 200, id: 2 }));
+  window.dispatchEvent(pointer("pointermove", { x: 203, y: 200, id: 2 }));
+  expect(ring()).toBeNull();
+  window.dispatchEvent(pointer("pointerup", { x: 203, y: 200, id: 2 }));
+});
+
+test("a press that never leaves the reveal distance never draws the ring, and the claim is still held", async () => {
+  const registry = createPointerOwnership();
+  const { host } = mount({ revealDistance: 8, ownership: registry });
+  const added: string[] = [];
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof Element && node.getAttribute("data-testid") === "floating-joystick") {
+          added.push("ring");
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
+  window.dispatchEvent(pointer("pointermove", { x: 108, y: 100, id: 1 }));
+  window.dispatchEvent(pointer("pointerup", { x: 108, y: 100, id: 1 }));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  observer.disconnect();
+  expect(added).toEqual([]);
+  expect(registry.ownerOf(1)).toBeUndefined();
+});
+
+test("zero, negative and NaN reveal distances draw the ring at the press, as before", async () => {
+  for (const revealDistance of [0, -5, Number.NaN]) {
+    const { host, unmount } = mount({ revealDistance });
+    host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
+    await waitFor(() => expect(ring()).not.toBeNull());
+    window.dispatchEvent(pointer("pointerup", { x: 100, y: 100, id: 1 }));
+    await waitFor(() => expect(ring()).toBeNull());
+    unmount();
+  }
+});
+
+test("changing revealDistance mid-gesture keeps the claim and applies to the held press", async () => {
+  const registry = createPointerOwnership();
+  const tree = (revealDistance: number) => (
+    <div data-testid="game-viewport" style={{ width: 320, height: 320 }}>
+      <FloatingJoystick ownership={registry} revealDistance={revealDistance} onChange={() => {}} />
+    </div>
+  );
+  const view = render(tree(50));
+  const host = view.getByTestId("game-viewport");
+  host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
+  window.dispatchEvent(pointer("pointermove", { x: 120, y: 100, id: 1 }));
+  expect(ring()).toBeNull();
+  view.rerender(tree(10));
+  expect(registry.ownerOf(1)).toMatch(/^joystick:/);
+  window.dispatchEvent(pointer("pointermove", { x: 125, y: 100, id: 1 }));
+  await waitFor(() => expect(ring()).not.toBeNull());
+  window.dispatchEvent(pointer("pointerup", { x: 125, y: 100, id: 1 }));
+});

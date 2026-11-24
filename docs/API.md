@@ -82,11 +82,22 @@ A touch-anywhere joystick. It renders a full-size, pointer-transparent wrapper
 | `allowMouse` | `boolean` | `false` | Also accept `pointerType: "mouse"`. Touch and pen are always accepted. |
 | `hostSelector` | `string` | `'[data-testid="game-viewport"]'` | Selector for the closest ancestor used as the hit-test host. Falls back to the parent element. |
 | `claimArea` | `ClaimArea` | the whole host | Which presses inside the host the stick may claim. See [`claimWidthFraction`](#claimwidthfraction). |
+| `revealDistance` | `number` | `0` | Draw the ring and knob only once the press has moved farther than this many CSS pixels from where it began; at or below zero (or NaN) it is drawn at once. See below. |
 | `ownership` | `PointerOwnership` | the shared `pointerOwnership` | The registry the stick claims its pointer in. See [`PointerOwnership`](#pointerownership). |
 | `owner` | `string` | `"joystick:"` + a per-instance id | The name the stick claims under in `ownership`. Each default stick has its own, so two never both take one pointer. |
 
 `accent` is concatenated with two-digit hex alpha suffixes, so pass a six-digit hex color such as
 `"#38bdf8"`.
+
+`revealDistance` defers only the drawing. The stick still claims the pointer and calls `onChange`
+from the first `pointerdown`, so the vector behaves exactly as without it; a game that wants a tap
+to move nothing keeps the dead zone, in pixels (`deadZone * radius`), at least as wide as its tap
+slop. Set it to the tap's slop (the `maxDistance` of `createTapInput`, 8 by default) and a press
+that stays a tap never flashes a ring. Once the press passes the distance the ring is drawn at the
+press origin and stays drawn, knob following the finger, until the gesture ends, even if the finger
+comes back inside the distance. The next press starts undrawn again. The wrapper's `aria-hidden`
+follows what is drawn. The prop is read through a ref like `onChange` and `claimArea`, so changing
+it never releases a held pointer.
 
 ### Pointer rules
 

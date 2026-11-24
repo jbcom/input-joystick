@@ -42,8 +42,9 @@ or a button widget is another owner in the same registry.
 4. **A zero vector always ends a gesture.** Pointer end, cancel, a claim released from the registry,
    `disabled` and unmount all call `onChange` with a zero vector, so a game loop that reads the last
    vector can never be left steering.
-5. **`onChange` and `claimArea` are read through refs.** A new callback identity does not re-attach
-   listeners or release a held pointer.
+5. **`onChange`, `claimArea` and `revealDistance` are read through refs.** A new callback identity or
+   a new distance does not re-attach listeners or release a held pointer. `revealDistance` only
+   defers drawing: the claim and the vector are never delayed (see [API](./API.md)).
 6. **No host coupling.** The accent color, host selector and label are explicit props. The component
    never reads a CSS custom property or a global.
 7. **One owner per pointer.** The stick takes its pointer from the ownership registry as its last
