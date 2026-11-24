@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/jbcom/input-joystick/compare/v0.7.1...v0.8.0) (2026-11-24)
+
+
+### Features
+
+* add camera pan, pinch, twist and wheel input that shares pointer ownership ([1ddbcb0](https://github.com/jbcom/input-joystick/commit/1ddbcb03a9227f41019dbbbc6b5753d2824efbf8))
+* add createCameraPanZoomInput for pan, pinch, twist and wheel zoom ([b404e34](https://github.com/jbcom/input-joystick/commit/b404e34bc42891e61e6deb64f62ab1f1d23a1618))
+* add pure camera gesture maths for pan, pinch, twist and wheel zoom ([e92648d](https://github.com/jbcom/input-joystick/commit/e92648d28f9516e64a8cac0380ccaf4f2c13e972))
+
+
+### Bug Fixes
+
+* keep camera gestures alive when page elements blur and cancel lifts on a dead host ([4b6858a](https://github.com/jbcom/input-joystick/commit/4b6858ad150f3964d2026e7cbeca7cbfbae0a3e4))
+
 ## [0.7.1](https://github.com/jbcom/input-joystick/compare/v0.7.0...v0.7.1) (2026-11-15)
 
 
