@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0](https://github.com/jbcom/input-joystick/compare/v0.8.0...v0.9.0) (2026-11-24)
+
+
+### Features
+
+* add createPressDragInput, a press-drag claim on a caller-supplied target ([baee7ea](https://github.com/jbcom/input-joystick/commit/baee7ea6fcc62c800ef0dc5056929224afc744dc))
+* add createPressHoldInput and a tap duration limit ([e128616](https://github.com/jbcom/input-joystick/commit/e128616d9b64b3bf95daa2c153055585ac2577e7))
+* add panFromControls so a camera pan can start on a button or link ([7b47483](https://github.com/jbcom/input-joystick/commit/7b47483578060a9dd3245a39514c8bc7a7e56e1b))
+* add revealDistance to draw the floating stick only after a press passes tap slop ([8a40ac7](https://github.com/jbcom/input-joystick/commit/8a40ac77169f2ece455f303dd7c11c8d89214c57))
+* press-and-hold, press-drag claim, deferred stick drawing and pan-from-controls ([1a8f351](https://github.com/jbcom/input-joystick/commit/1a8f351214a5342dd78bfe05896e08fd8133ba70))
+
+
+### Bug Fixes
+
+* clear a stale ring when a new press starts on a joystick with revealDistance ([0b4b9c5](https://github.com/jbcom/input-joystick/commit/0b4b9c59d705abb269cee0a23499cd44ea728bd7))
+* keep a held tap or hold when a focused control blurs ([32d9932](https://github.com/jbcom/input-joystick/commit/32d9932fd322bca104ae62cc2501ecc231097439))
+* only swallow a pointer's own click after a pan from a control ([2f89e4d](https://github.com/jbcom/input-joystick/commit/2f89e4d06638880314de7d9e1809ba2360ab74d6))
+* press-drag mouse capture under pointer lock and on controls, and silence after the end ([df7acfe](https://github.com/jbcom/input-joystick/commit/df7acfe93d7a6822792d79b87e1d733b24be9aab))
+* press-drag steps follow callbacks and coalesced samples, and hold types follow target ([2e242bc](https://github.com/jbcom/input-joystick/commit/2e242bc74ac290930da50208531a1d9816990225))
+* start a pinch from where a waiting press on a control really is ([d911319](https://github.com/jbcom/input-joystick/commit/d9113197b29c7d904f3dff706fa80da8fa28d008))
+
 ## [0.8.0](https://github.com/jbcom/input-joystick/compare/v0.7.1...v0.8.0) (2026-11-24)
 
 
