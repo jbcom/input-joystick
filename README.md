@@ -109,7 +109,7 @@ focus.
 | Export | Kind | What it does |
 | --- | --- | --- |
 | `FloatingJoystick` | component | Claims one pointer inside its host, emits normalized vectors, draws the ring and knob. |
-| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`, `claimArea`, `ownership`, `owner`. |
+| `FloatingJoystickProps` | type | `onChange`, `disabled`, `label`, `radius`, `deadZone`, `accent`, `allowMouse`, `hostSelector`, `claimArea`, `revealDistance`, `ownership`, `owner`. |
 | `claimWidthFraction(side, fraction)` | function | A `ClaimArea` for the `fraction` of the host's width from the `"left"` or `"right"` edge. |
 | `ClaimArea`, `ClaimRect` | types | `(event, rect) => boolean` over the `pointerdown` and the host's rectangle. |
 | `pointerOwnership` | value | The shared `PointerOwnership` registry the joystick uses by default. |
@@ -117,9 +117,13 @@ focus.
 | `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
 | `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
 | `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
+| `createPressDragInput(options)` | function | Claim a press that begins on a caller-supplied hit target, in the window capture phase and through the shared registry, and report its press, drag and end (`"tap"`, `"drag"` or `"cancel"`). `createTapInput` and `createPressHoldInput` take `ignoreOwners` so that press is neither a clean tap nor a hold. |
+| `PressDragPoint`, `PressDragEnd`, `PressDragEndReason`, `PressDragInputOptions`, `PressDragInput` | types | A press's origin, position, offset and step, how it ended, and the recognizer's options and lifecycle methods. |
+| `createPressHoldInput(options)` | function | Observe a press that stays put for `holdMs` and report it once with a target decided at the press, without claiming a pointer. `createTapInput` takes a `maxDuration` so a hold is not also a tap. |
+| `PressHold`, `PressHoldInputOptions`, `PressHoldInput` | types | The hold's position and target, and the recognizer's options and lifecycle methods. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
-| `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel. |
+| `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel, and an opt-in `panFromControls` so a pan can start on a button or link (its click is suppressed once the press passes the tap slop). |
 | `CameraGestureChange`, `CameraGestureSource`, `CameraGestureEnd`, `CameraPanZoomInputOptions`, `CameraPanZoomInput` | types | A step's `source`, `pan`, `scale`, `twist` and `anchor`, how a gesture ended, and the controller's options and lifecycle methods. |
 | `twoFingerGesture(before, after)` | function | Pure two-finger pan, pinch scale and twist for one step of two fingers. |
 | `normalizeWheelDelta(delta, deltaMode, pageSize)`, `wheelZoomScale(pixels, step)`, `DEFAULT_WHEEL_STEP` | functions, value | Wheel deltas in pixels across pixel, line and page modes, and the zoom scale a wheel movement applies. |

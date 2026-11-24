@@ -14,9 +14,13 @@ description: Module boundaries, invariants and intentional limits.
 | `src/usePointerOwnership.ts` | The React hook over the registry, bound to one owner. |
 | `src/useKeyboardVectorMap.ts` | The opt-in keyboard co-map. Independent of the component. |
 | `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
+| `src/pressObserver.ts` | The pointer bookkeeping shared by the observers that never claim a pointer: eligibility, maximum excursion (coalesced samples, locked-mouse movement) and every way a held press is discarded. Internal, not exported. |
+| `src/tapInput.ts` | The tap observer: a clean release of a press from `pressObserver`, optionally within `maxDuration`. |
+| `src/pressDragInput.ts` | Plain DOM recognizer for a press that begins on a caller-supplied target: claims one pointer in the window capture phase, reports press, drag and end. No React or renderer. |
+| `src/pressHoldInput.ts` | The press-and-hold observer: a timer over a `pressObserver` press, with a target fixed at the press. |
 | `src/cameraPanZoomInput.ts` | Plain DOM controller for camera pan, pinch, twist and wheel zoom: up to two owned contacts, optional mouse drag and wheel, cancellation on every loss of the gesture. No React, renderer or camera model. |
 | `src/cameraGesture.ts` | Pure two-finger pan, pinch and twist, wheel-delta normalisation and wheel zoom scale. No DOM, no React, no renderer. |
-| `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap and camera input. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
+| `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap, press-drag and camera input; `allowControls` frees buttons and links but never text entry. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
 | `src/index.ts` | The public surface; nothing else is importable. |
 
 The math lives in its own module so the curve is unit-testable without simulating pointer events,
@@ -38,8 +42,9 @@ or a button widget is another owner in the same registry.
 4. **A zero vector always ends a gesture.** Pointer end, cancel, a claim released from the registry,
    `disabled` and unmount all call `onChange` with a zero vector, so a game loop that reads the last
    vector can never be left steering.
-5. **`onChange` and `claimArea` are read through refs.** A new callback identity does not re-attach
-   listeners or release a held pointer.
+5. **`onChange`, `claimArea` and `revealDistance` are read through refs.** A new callback identity or
+   a new distance does not re-attach listeners or release a held pointer. `revealDistance` only
+   defers drawing: the claim and the vector are never delayed (see [API](./API.md)).
 6. **No host coupling.** The accent color, host selector and label are explicit props. The component
    never reads a CSS custom property or a global.
 7. **One owner per pointer.** The stick takes its pointer from the ownership registry as its last
@@ -48,6 +53,10 @@ or a button widget is another owner in the same registry.
 8. **The registry is passive until attached.** Importing the package creates the shared registry but
    attaches no listener. A registry releases claims on its own only between `attach` and the matching
    detach; the component and the hook attach while mounted.
+9. **A press-drag claims first.** `createPressDragInput` claims in the window capture phase, ahead of
+   every other claimer, and checks controls before the caller's `hitTarget`. The tap and hold
+   observers never claim and yield only to owners named in `ignoreOwners` (see
+   [Press-drag lifecycle](#press-drag-lifecycle)).
 
 ## Pointer ownership
 
@@ -157,6 +166,64 @@ cancels the candidate even if later deltas return to the origin. Touch and pen c
 consume mouse deltas. Lock-change events reset the set before another coordinate regime can
 complete a held gesture. Neither integration path changes ownership or camera angles.
 
+## Press-and-hold lifecycle
+
+`createPressHoldInput` is the second observer over `src/pressObserver.ts`, the tracker that
+`createTapInput` also uses, so the two share one definition of an eligible press, of excursion and
+of every way a press is discarded. The tracker neither claims, captures nor prevents anything. The
+hold adds one timer per followed press: it starts when the press is registered and is cleared
+whenever the press leaves the held set, whether by release, cancel, lost capture, blur, lock change,
+`reset()` or `dispose()`, and also when a second press replaces one with the same pointer id. When it
+fires it re-checks the press's cancellation flag, so a press cancelled by movement or an overlapping
+press after the timer started can never hold, and it reports once: the press stays tracked until it
+ends, but the timer is spent.
+
+The target is chosen by the caller's `target` function at the press, inside the tracker's `begin`
+step. A press with no target is not followed at all, so it is independent in the same way a press
+outside a `claimArea` is, and cancels nothing. Because the hold does not claim, it cannot arbitrate
+with a stick or look on the same finger and does not try to: the owner of the pointer is whoever
+claimed it, and a still thumb can be a stick and a hold together. A tap that must not follow a hold
+uses `maxDuration`, measured by the tracker from the press to the release on the
+`performance.now()` clock, so the decision is the same whatever order the two observers were
+created in.
+
+## Press-drag lifecycle
+
+`createPressDragInput` is the one recognizer here that claims a pointer for a target the caller
+defines, and its position in the event order is the design. Its `pointerdown` listener is on the
+window in the **capture** phase. The stick listens on the window in the bubble phase, look and the
+camera on the host in the bubble phase, and the tap and hold observers on the host in the capture
+phase, so the press-drag runs first for every one of them whatever order they were created in. It
+checks host, controls and the caller's `hitTarget` and then claims in the registry, last, like every
+other claimer; a pointer it does not take is never touched, so the stick, look and camera see it as
+they always did. A pointer it does take is already owned when they look: the stick and look find
+their `claim` refused and start nothing, and `createTapInput` and `createPressHoldInput`, given the
+recognizer's owner in `ignoreOwners`, skip it at their own `pointerdown`. The tap observers do not
+yield to every owner: the stick and look claim most presses and a tap in their zone must still work,
+so only the named owners of consuming gestures are skipped.
+
+The controls check runs before `hitTarget`. A world raycast answers for the ground under a HUD
+button, so the control must win first; `allowControls` is for the case where the target is itself a
+button, and it never admits text entry. State is one held press at most. Another pointer cancels it
+(a second finger means the player is doing something else) unless `cancelOnSecondPointer` is off,
+and is never claimed here.
+
+The press leaves the recognizer's state before its claim is released, so the registry's release
+listener re-enters, finds nothing, and an end is reported once whether it began as a `pointerup`, a
+`release(id, owner)`, `clear()` or the registry's own blur handling. `pointerup` and `pointercancel`
+are window capture listeners, ahead of the registry's bubble-phase handler, so a lift is a tap or a
+drag and not a cancel. Whether a press is a tap or a drag is decided by the maximum excursion of the
+positions, coalesced samples included, as for `createTapInput`: once it
+passes `maxDistance` it is a drag for good, even if it returns to where it began. A mouse press is
+captured on the host so a drag that leaves it still ends, but not under pointer lock (the browser
+refuses it there) and, for a control admitted by `allowControls`, only once it drags, because
+capturing at the press would redirect the control's click. A callback that resets or disposes ends
+the press at once and nothing more is reported for it. Reported positions are per callback (`stepX`, `stepY`) so a consumer paces by travel
+without a clock or a stored last position. Under pointer lock client coordinates are frozen, so a
+locked mouse press is driven by `mousemove` relative movement from the origin instead, the same
+rule the tap observer follows, and pointer lock look is left running because it is not a claimed
+drag.
+
 ## Camera gesture lifecycle
 
 `createCameraPanZoomInput` is a DOM controller over `src/cameraGesture.ts`. It emits steps (pan,
@@ -194,6 +261,18 @@ and the host leaving the document. The host's size is compared with the last rec
 must not cancel a gesture that just began. Where the window has no `ResizeObserver`, the window
 events still cover rotation and resize. Blur and the layout events cancel only this controller's
 contacts; unlike `registry.attach`, they never clear another owner's.
+
+With `panFromControls` a contact that began on a control is `pending`: claimed, so no other owner
+can take it, but not yet a gesture. A pending contact reports nothing, is not prevented and is not
+captured. Capture is the trap: a mouse captured to the host at the press has its click retargeted
+away from the control, so a plain click would never arrive. Promotion happens at the first move past
+`maxDistance`, which captures the mouse, marks the gesture begun and starts reporting steps from
+the press origin. A second finger promotes a waiting press at once, because two fingers are a
+pinch and never a click. `onEnd` is tied to a gesture having begun, not to contacts leaving the map,
+so a click-sized press on a control ends silently. A promoted contact that is released arms a
+one-shot suppression of the next click inside its control (window capture phase), disarmed by that
+click, by the next `pointerdown`, by a 400 ms timer and by `dispose()`, so it can never eat a later
+real click.
 
 The wheel is not a pointer and does not use the registry. It zooms about the cursor through
 `normalizeWheelDelta` and `wheelZoomScale`, ignores `claimArea` (typed on `PointerEvent`), skips

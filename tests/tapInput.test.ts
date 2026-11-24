@@ -112,9 +112,6 @@ test("cancel, capture loss, blur, explicit overlay reset and disposal discard he
   window.dispatchEvent(new Event("blur"));
   pointer(window, "pointerup");
   pointer(element, "pointerdown");
-  element.dispatchEvent(new Event("blur"));
-  pointer(window, "pointerup");
-  pointer(element, "pointerdown");
   input.reset();
   pointer(window, "pointerup");
   pointer(element, "pointerdown");
@@ -124,6 +121,18 @@ test("cancel, capture loss, blur, explicit overlay reset and disposal discard he
   pointer(element, "pointerdown");
   pointer(window, "pointerup");
   expect(onTap).not.toHaveBeenCalled();
+});
+
+test("an element inside the page losing focus is not the window blurring: the press still taps", () => {
+  const { element, onTap } = setup();
+  const control = document.createElement("button");
+  element.append(control);
+  pointer(element, "pointerdown");
+  // Pressing the host moves focus off a focused control; its blur must not discard the press.
+  control.dispatchEvent(new FocusEvent("blur", { bubbles: false }));
+  element.dispatchEvent(new Event("blur"));
+  pointer(window, "pointerup");
+  expect(onTap).toHaveBeenCalledTimes(1);
 });
 
 test("UI controls, unknown devices, other mouse buttons and live claim-area rejection cannot tap", () => {
@@ -207,6 +216,54 @@ test("zero threshold accepts no movement and invalid options fail before attachm
   }
   const detached = document.implementation.createHTMLDocument().createElement("div");
   expect(() => createTapInput({ element: detached, onTap })).toThrow("window");
+});
+
+test("a pointer claimed under an ignored owner is never a tap, while other owners' pointers still tap", () => {
+  const ownership = createPointerOwnership();
+  const { element, onTap } = setup({ ownership, ignoreOwners: ["run"] });
+  ownership.claim(1, "run");
+  pointer(element, "pointerdown", 1);
+  pointer(window, "pointerup", 1);
+  expect(onTap).not.toHaveBeenCalled();
+  // An ignored press cancels nothing: a tap that was already held survives it.
+  pointer(element, "pointerdown", 2);
+  pointer(element, "pointerdown", 1);
+  pointer(window, "pointerup", 1);
+  pointer(window, "pointerup", 2);
+  expect(onTap).toHaveBeenCalledTimes(1);
+  ownership.release(1, "run");
+  ownership.claim(3, "stick");
+  pointer(element, "pointerdown", 3);
+  pointer(window, "pointerup", 3);
+  pointer(element, "pointerdown", 4);
+  pointer(window, "pointerup", 4);
+  expect(onTap).toHaveBeenCalledTimes(3);
+});
+
+test("a maximum duration turns a long press into no tap and defaults to unbounded", () => {
+  vi.useFakeTimers();
+  try {
+    const { element, onTap } = setup({ maxDuration: 300 });
+    pointer(element, "pointerdown");
+    vi.advanceTimersByTime(300);
+    pointer(window, "pointerup");
+    expect(onTap).toHaveBeenCalledTimes(1);
+    pointer(element, "pointerdown");
+    vi.advanceTimersByTime(301);
+    pointer(window, "pointerup");
+    expect(onTap).toHaveBeenCalledTimes(1);
+    const unbounded = setup();
+    pointer(unbounded.element, "pointerdown");
+    vi.advanceTimersByTime(60_000);
+    pointer(window, "pointerup");
+    expect(unbounded.onTap).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+  const { element, onTap } = setup();
+  for (const maxDuration of [0, -1, Number.NaN]) {
+    expect(() => createTapInput({ element, onTap, maxDuration })).toThrow(RangeError);
+  }
 });
 
 test("look ownership and synchronous pointerup capture release coexist in either registration order", () => {

@@ -10,6 +10,7 @@ import {
   FloatingJoystick,
   type JoystickVector,
 } from "../src/index";
+import { mouseScript } from "./mouseScript";
 
 // Real Chromium PointerEvent and WheelEvent objects: a left-zone stick and a right-zone camera in
 // one host sharing one registry, which is the pairing the camera input exists for.
@@ -163,4 +164,72 @@ test("a camera and look share one registry without any finger being taken twice"
   window.dispatchEvent(touch("pointermove", 2, rect.left + 120, rect.top + 100));
   expect(changes).toHaveLength(1);
   expect(angles).toHaveLength(1);
+});
+
+// Trusted mouse input: a dispatched event never produces a click, so whether a drag that starts on a
+// button swallows that button's click, and a plain click on it still arrives, can only be seen here.
+function controlHost() {
+  const element = document.createElement("div");
+  element.dataset.testid = "graph-viewport";
+  element.style.cssText = "position: relative; width: 400px; height: 300px; touch-action: none";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Open";
+  button.style.cssText = "position: absolute; left: 50px; top: 50px; width: 80px; height: 40px";
+  element.append(button);
+  document.body.append(element);
+  const clicks: number[] = [];
+  button.addEventListener("click", () => clicks.push(clicks.length));
+  const changes: CameraGestureChange[] = [];
+  const ends: CameraGestureEnd[] = [];
+  const camera = createCameraPanZoomInput({
+    element,
+    allowMouseDrag: true,
+    panFromControls: true,
+    onChange: (change) => changes.push(change),
+    onEnd: (reason) => ends.push(reason),
+  });
+  disposals.push(camera.dispose, () => element.remove());
+  return { clicks, changes, ends };
+}
+
+test("a native click on a button inside a pan-from-controls camera is still a click and pans nothing", async () => {
+  const { clicks, changes, ends } = controlHost();
+  await mouseScript("graph-viewport", [
+    { type: "down-at", x: 90, y: 70 },
+    { type: "move", x: 93, y: 72 },
+    { type: "up" },
+  ]);
+  expect(clicks).toHaveLength(1);
+  expect(changes).toEqual([]);
+  expect(ends).toEqual([]);
+});
+
+test("a native drag that starts on a button pans from there and the button's click is swallowed, once", async () => {
+  const { clicks, changes, ends } = controlHost();
+  await mouseScript("graph-viewport", [
+    { type: "down-at", x: 90, y: 70 },
+    { type: "move", x: 120, y: 80 },
+    { type: "move", x: 300, y: 200 },
+    { type: "up" },
+  ]);
+  expect(clicks).toHaveLength(0);
+  expect(changes.length).toBeGreaterThan(0);
+  expect(changes[0].pan).toEqual({ x: 30, y: 10 });
+  expect(ends).toEqual(["release"]);
+  // The suppression was one-shot: the next click on the button is a real one.
+  await mouseScript("graph-viewport", [{ type: "down-at", x: 90, y: 70 }, { type: "up" }]);
+  expect(clicks).toHaveLength(1);
+});
+
+test("a native drag that ends back on its button is still a pan, not a click", async () => {
+  const { clicks, changes } = controlHost();
+  await mouseScript("graph-viewport", [
+    { type: "down-at", x: 90, y: 70 },
+    { type: "move", x: 200, y: 150 },
+    { type: "move", x: 90, y: 70 },
+    { type: "up" },
+  ]);
+  expect(changes.length).toBeGreaterThan(0);
+  expect(clicks).toHaveLength(0);
 });

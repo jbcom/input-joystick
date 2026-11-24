@@ -6,7 +6,7 @@ import {
   wheelZoomScale,
 } from "./cameraGesture.js";
 import type { ClaimArea } from "./claimArea.js";
-import { isInteractiveTarget } from "./interactiveTarget.js";
+import { closestControl, isInteractiveTarget } from "./interactiveTarget.js";
 import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
 
 /** Where a camera change came from: one pointer, two fingers, or the wheel. */
@@ -53,6 +53,20 @@ export interface CameraPanZoomInputOptions {
   allowMouseDrag?: boolean;
   /** Opt in to wheel zoom (and trackpad pinch, which browsers report as ctrl-wheel). Defaults to false. */
   allowWheel?: boolean;
+  /**
+   * Let a pan start on a `button`, `a`, `summary` or `[role="button"]`, for a canvas of controls
+   * (graph nodes drawn as buttons, say). Such a press does nothing until it moves more than
+   * `maxDistance`: released before that it stays an ordinary click, and no step is reported. Once
+   * past it the press is claimed and pans from where it began, and the control's click on release
+   * is suppressed. Inputs, selects, textareas, editable content and `data-joystick-ignore` subtrees
+   * still never start a pan. The wheel then zooms over these controls too. Defaults to false.
+   */
+  panFromControls?: boolean;
+  /**
+   * With `panFromControls`: how far a press on a control may move, in CSS pixels, and still be a
+   * click. Finite and nonnegative; default 8, the tap slop of `createTapInput`.
+   */
+  maxDistance?: number;
   /** Zoom scale per pixel of wheel travel, finite and above 1. Defaults to `DEFAULT_WHEEL_STEP`. */
   wheelStep?: number;
 }
@@ -68,8 +82,21 @@ interface Contact {
   /** The last client position seen; the next step is measured from it. */
   x: number;
   y: number;
+  /** Where the press began, for the slop of a press on a control. */
+  originX: number;
+  originY: number;
+  /** The last position a waiting press was seen at within the slop, where a pinch starts from. */
+  seenX: number;
+  seenY: number;
   pointerType: string;
+  /** The control the press began on, when `panFromControls` let it. */
+  control: Element | null;
+  /** A press on a control that has not yet moved past the slop: claimed, but not yet a pan. */
+  pending: boolean;
 }
+
+/** How long after a pan that began on a control its click is still suppressed. */
+const CLICK_SUPPRESSION_MS = 400;
 
 let nextOwner = 0;
 
@@ -93,9 +120,14 @@ export function createCameraPanZoomInput({
   allowMouseDrag = false,
   allowWheel = false,
   wheelStep = DEFAULT_WHEEL_STEP,
+  panFromControls = false,
+  maxDistance = 8,
 }: CameraPanZoomInputOptions): CameraPanZoomInput {
   if (!(Number.isFinite(wheelStep) && wheelStep > 1)) {
     throw new RangeError("wheelStep must be finite and above 1");
+  }
+  if (!Number.isFinite(maxDistance) || maxDistance < 0) {
+    throw new RangeError("maxDistance must be finite and nonnegative");
   }
   const doc = element.ownerDocument;
   const win = doc.defaultView;
@@ -104,11 +136,39 @@ export function createCameraPanZoomInput({
   const contacts = new Map<number, Contact>();
   let disposed = false;
   let size = element.getBoundingClientRect();
+  // Whether a gesture has begun since the last `onEnd`: a press still waiting on the slop of a
+  // control is not one, so releasing it as a click reports no end.
+  let live = false;
+  let suppression: (() => void) | undefined;
 
   const local = (x: number, y: number, rect: DOMRect): CameraPoint => ({
     x: x - rect.left,
     y: y - rect.top,
   });
+  const disarmClick = () => {
+    suppression?.();
+    suppression = undefined;
+  };
+  // A pan that began on a control must not also click it. The click arrives after the lift, so
+  // swallow the next one that lands inside that control, until the next press or a short time.
+  const suppressClickOn = (control: Element) => {
+    disarmClick();
+    const onClick = (event: MouseEvent) => {
+      // A keyboard or programmatic click has no click count and is never the lift's own click.
+      if (event.detail === 0 || !control.contains(event.target as Node | null)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      disarmClick();
+    };
+    const timer = win.setTimeout(disarmClick, CLICK_SUPPRESSION_MS);
+    win.addEventListener("click", onClick, true);
+    win.addEventListener("pointerdown", disarmClick, true);
+    suppression = () => {
+      win.clearTimeout(timer);
+      win.removeEventListener("click", onClick, true);
+      win.removeEventListener("pointerdown", disarmClick, true);
+    };
+  };
   // The contact leaves the map before the claim is released: the registry's release listener
   // re-enters here, finds nothing and so cannot report the same end twice.
   const drop = (id: number, reason: CameraGestureEnd) => {
@@ -119,10 +179,31 @@ export function createCameraPanZoomInput({
       element.releasePointerCapture(id);
     }
     ownership.release(id, owner);
-    if (contacts.size === 0) onEnd?.(reason);
+    if (reason === "release" && contact.control && !contact.pending) {
+      suppressClickOn(contact.control);
+    }
+    if (contacts.size === 0 && live) {
+      live = false;
+      onEnd?.(reason);
+    }
   };
   const cancelAll = () => {
     for (const id of [...contacts.keys()]) drop(id, "cancel");
+  };
+  // A press on a control becomes a pan: capture a mouse now (not at the press, where capturing would
+  // redirect the control's own click), and count the gesture as begun. False when capture fails.
+  const promote = (id: number, contact: Contact) => {
+    if (contact.pointerType === "mouse") {
+      try {
+        element.setPointerCapture?.(id);
+      } catch {
+        drop(id, "cancel");
+        return false;
+      }
+    }
+    contact.pending = false;
+    live = true;
+    return true;
   };
 
   const onDown = (event: PointerEvent) => {
@@ -137,7 +218,7 @@ export function createCameraPanZoomInput({
     ) {
       return;
     }
-    if (isInteractiveTarget(event.target)) return;
+    if (isInteractiveTarget(event.target, { allowControls: panFromControls })) return;
     const rect = element.getBoundingClientRect();
     if (
       event.clientX < rect.left ||
@@ -148,7 +229,10 @@ export function createCameraPanZoomInput({
       return;
     if (claimArea && !claimArea(event, rect)) return;
     if (!ownership.claim(event.pointerId, owner)) return;
-    if (event.pointerType === "mouse") {
+    // A lone press on a control waits for the slop; a second finger is a pinch, never a click.
+    const control = panFromControls ? closestControl(event.target) : null;
+    const pending = control !== null && contacts.size === 0;
+    if (event.pointerType === "mouse" && !pending) {
       try {
         element.setPointerCapture?.(event.pointerId);
       } catch {
@@ -159,8 +243,24 @@ export function createCameraPanZoomInput({
     contacts.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
+      originX: event.clientX,
+      originY: event.clientY,
+      seenX: event.clientX,
+      seenY: event.clientY,
       pointerType: event.pointerType,
+      control,
+      pending,
     });
+    if (pending) return;
+    live = true;
+    // A second finger turns a press still waiting on a control into the pinch's first finger.
+    for (const [id, other] of contacts) {
+      if (!other.pending) continue;
+      // It stayed within the slop, so the pinch starts from where the finger actually is.
+      other.x = other.seenX;
+      other.y = other.seenY;
+      promote(id, other);
+    }
     event.preventDefault();
   };
   const onMove = (event: PointerEvent) => {
@@ -174,8 +274,22 @@ export function createCameraPanZoomInput({
       drop(event.pointerId, "release");
       return;
     }
+    const finite = Number.isFinite(event.clientX) && Number.isFinite(event.clientY);
+    if (contact.pending) {
+      // Not a pan yet, and not prevented: it may still be a click on the control.
+      const travelled = Math.hypot(
+        event.clientX - contact.originX,
+        event.clientY - contact.originY
+      );
+      if (finite && travelled <= maxDistance) {
+        contact.seenX = event.clientX;
+        contact.seenY = event.clientY;
+        return;
+      }
+      if (!finite || !promote(event.pointerId, contact)) return;
+    }
     event.preventDefault();
-    if (!(Number.isFinite(event.clientX) && Number.isFinite(event.clientY))) return;
+    if (!finite) return;
     const rect = element.getBoundingClientRect();
     if (contacts.size === 2) {
       const [first, second] = [...contacts.values()];
@@ -212,7 +326,7 @@ export function createCameraPanZoomInput({
     drop(event.pointerId, element.isConnected ? "release" : "cancel");
   const onCancel = (event: PointerEvent) => drop(event.pointerId, "cancel");
   const onWheel = (event: WheelEvent) => {
-    if (isInteractiveTarget(event.target)) return;
+    if (isInteractiveTarget(event.target, { allowControls: panFromControls })) return;
     const rect = element.getBoundingClientRect();
     const pixels = normalizeWheelDelta(event.deltaY, event.deltaMode, rect.height);
     const scale = wheelZoomScale(pixels, wheelStep);
@@ -258,6 +372,7 @@ export function createCameraPanZoomInput({
       if (disposed) return;
       disposed = true;
       cancelAll();
+      disarmClick();
       unsubscribe();
       observer?.disconnect();
       element.removeEventListener("pointerdown", onDown);

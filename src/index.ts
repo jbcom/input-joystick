@@ -31,6 +31,20 @@ export {
   type PointerReleaseListener,
   pointerOwnership,
 } from "./pointerOwnership.js";
+export {
+  createPressDragInput,
+  type PressDragEnd,
+  type PressDragEndReason,
+  type PressDragInput,
+  type PressDragInputOptions,
+  type PressDragPoint,
+} from "./pressDragInput.js";
+export {
+  createPressHoldInput,
+  type PressHold,
+  type PressHoldInput,
+  type PressHoldInputOptions,
+} from "./pressHoldInput.js";
 export { createTapInput, type TapInput, type TapInputOptions } from "./tapInput.js";
 export {
   type KeyboardVector,

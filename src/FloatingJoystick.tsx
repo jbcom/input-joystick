@@ -28,6 +28,15 @@ export interface FloatingJoystickProps {
    * the whole host. See `claimWidthFraction`. Read through a ref, so an inline
    * function does not re-attach listeners. */
   claimArea?: ClaimArea;
+  /** px, default 0. Draw the ring and knob only once the press has moved farther than this from
+   * where it began, so a press that stays within tap slop (set it to the tap's `maxDistance`)
+   * never flashes a stick. Only the drawing waits: the vector is emitted from the first
+   * `pointerdown` as usual, so keep the dead zone at least this wide if a tap must move nothing.
+   * Once drawn the stick stays drawn until the gesture ends, even if the finger comes back. The
+   * stick is drawn at the press origin, not where the finger was when the distance was passed. Zero
+   * or less (or NaN) draws at once. Read through a ref, so changing it never releases a held
+   * pointer. */
+  revealDistance?: number;
   /** The registry the stick claims its pointer in, so a pointer another owner
    * holds is never taken and one the stick holds is not offered to others.
    * Default: the shared `pointerOwnership`. */
@@ -67,6 +76,7 @@ export function FloatingJoystick({
   allowMouse = false,
   hostSelector = DEFAULT_HOST_SELECTOR,
   claimArea,
+  revealDistance = 0,
   ownership = pointerOwnership,
   owner: ownerProp,
 }: FloatingJoystickProps) {
@@ -79,12 +89,16 @@ export function FloatingJoystick({
   const origin = useRef({ x: 0, y: 0 });
   const onChangeRef = useRef(onChange);
   const claimAreaRef = useRef(claimArea);
+  const revealDistanceRef = useRef(revealDistance);
+  // Whether the held gesture has been drawn yet; latched until it ends.
+  const revealed = useRef(false);
   const [visual, setVisual] = useState<JoystickVisualState>(NEUTRAL);
 
   useEffect(() => {
     onChangeRef.current = onChange;
     claimAreaRef.current = claimArea;
-  }, [onChange, claimArea]);
+    revealDistanceRef.current = revealDistance;
+  }, [onChange, claimArea, revealDistance]);
 
   useEffect(() => {
     if (disabled) {
@@ -135,13 +149,17 @@ export function FloatingJoystick({
       const unitX = distance > 0 ? rawDx / distance : 0;
       const unitY = distance > 0 ? rawDy / distance : 0;
 
-      setVisual({
-        active: true,
-        originX: origin.current.x,
-        originY: origin.current.y,
-        knobX: unitX * clampedDistance,
-        knobY: unitY * clampedDistance,
-      });
+      const threshold = revealDistanceRef.current;
+      if (!(threshold > 0) || distance > threshold) revealed.current = true;
+      if (revealed.current) {
+        setVisual({
+          active: true,
+          originX: origin.current.x,
+          originY: origin.current.y,
+          knobX: unitX * clampedDistance,
+          knobY: unitY * clampedDistance,
+        });
+      }
       onChangeRef.current(vector);
     };
 
@@ -157,6 +175,9 @@ export function FloatingJoystick({
       if (event.cancelable) event.preventDefault();
       activePointer.current = event.pointerId;
       origin.current = { x: event.clientX, y: event.clientY };
+      revealed.current = false;
+      // A ring left from a gesture that an effect restart cut short must not outlive this press.
+      setVisual(NEUTRAL);
       updateVector(event);
     };
 

@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import type { MouseStep } from "./tests/mouseScript";
 
 // Real-Chromium test for FloatingJoystick.tsx: exercises real pointer capture and pointerId
 // claiming semantics (multi-touch, isPrimary), which jsdom cannot reliably simulate. Real Chromium
@@ -13,6 +14,10 @@ export default defineConfig({
       "tests/lookInput.test.ts",
       "tests/tapInput.test.ts",
       "tests/tapInput.browser.test.ts",
+      "tests/pressHoldInput.test.ts",
+      "tests/pressHoldInput.browser.test.ts",
+      "tests/pressDragInput.test.ts",
+      "tests/pressDragInput.browser.test.tsx",
       "tests/lookInput.browser.test.ts",
       // Real PointerEvent and WheelEvent coexistence of camera, stick and look. Camera coverage is
       // gated in the jsdom suite, where its listeners, observer and ownership paths are stubbed.
@@ -35,6 +40,33 @@ export default defineConfig({
       }),
       instances: [{ browser: "chromium" }],
       commands: {
+        // Trusted mouse input as a script of steps, positions relative to the test element's
+        // top-left: the browser tests for pointer-driven behavior that dispatched events cannot
+        // reproduce (clicks, pointer capture, real timing).
+        async mouseScript({ page, iframe }, testId: string, steps: MouseStep[]) {
+          const box = await iframe.getByTestId(testId).boundingBox();
+          if (!box) throw new Error(`${testId} has no bounds`);
+          for (const step of steps) {
+            switch (step.type) {
+              case "move":
+                await page.mouse.move(box.x + step.x, box.y + step.y);
+                break;
+              case "down-at":
+                await page.mouse.move(box.x + step.x, box.y + step.y);
+                await page.mouse.down();
+                break;
+              case "down":
+                await page.mouse.down();
+                break;
+              case "up":
+                await page.mouse.up();
+                break;
+              case "wait":
+                await page.waitForTimeout(step.ms);
+                break;
+            }
+          }
+        },
         async lockedTapMouse({ page, iframe }, drag: boolean) {
           const box = await iframe.getByTestId("locked-tap-surface").boundingBox();
           if (!box) throw new Error("Locked tap surface has no bounds");
@@ -64,7 +96,14 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      include: ["src/FloatingJoystick.tsx", "src/lookInput.ts", "src/tapInput.ts"],
+      include: [
+        "src/FloatingJoystick.tsx",
+        "src/lookInput.ts",
+        "src/tapInput.ts",
+        "src/pressObserver.ts",
+        "src/pressHoldInput.ts",
+        "src/pressDragInput.ts",
+      ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/browser",
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },

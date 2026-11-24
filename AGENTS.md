@@ -28,8 +28,9 @@ Full detail in `docs/ARCHITECTURE.md`.
    checks pass, and the ownership claim is the last check, so a rejected press never holds a claim.
 3. Pointer end, cancel, a claim released from the registry, `disabled` and unmount always report a
    zero vector.
-4. `onChange` and `claimArea` are read through refs; a new callback identity must not re-attach
-   listeners.
+4. `onChange`, `claimArea` and `revealDistance` are read through refs; a new callback identity or
+   distance must not re-attach listeners. `revealDistance` only defers drawing, never the claim or
+   the vector.
 5. No host coupling: accent, host selector and label are props, never read from a CSS custom
    property or a global.
 6. `normalizeJoystick` stays pure and free of DOM and React.
@@ -39,9 +40,14 @@ Full detail in `docs/ARCHITECTURE.md`.
    attaches no listener until `attach` is called (the package stays `sideEffects: false`).
    `pointerOwnership.ts` and `claimArea.ts` stay free of React.
 9. The camera controller claims up to two pointers (invariant 1 is the stick's), claims last, and
-   removes a contact from its own map before releasing the claim. `cameraGesture.ts` and
+   removes a contact from its own map before releasing the claim. A press on a control
+   (`panFromControls`) is never prevented or mouse-captured until it passes the slop. `cameraGesture.ts` and
    `cameraPanZoomInput.ts` stay free of React and of any renderer. The camera's coverage is gated in
    the jsdom suite with stubbed observer, capture and ownership paths.
+10. The press-drag recognizer claims in the window capture phase, ahead of every other claimer, and
+    checks controls before the caller's `hitTarget`. The tap and hold observers never claim and yield
+    only to owners named in `ignoreOwners`. `pressDragInput.ts`, `pressHoldInput.ts` and
+    `pressObserver.ts` stay free of React and of any renderer.
 
 ## Keeping docs and tests in sync
 
