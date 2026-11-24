@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/jbcom/input-joystick/compare/v0.9.0...v0.9.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **lint:** adopt biome 2.6 and hoist test components to module scope ([f1ef7d4](https://github.com/jbcom/input-joystick/commit/f1ef7d477ce837bec9f59cdbc436bf93b62b2157))
+
 ## [0.9.0](https://github.com/jbcom/input-joystick/compare/v0.8.0...v0.9.0) (2026-11-24)
 
 
