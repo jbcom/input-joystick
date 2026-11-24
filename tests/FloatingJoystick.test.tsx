@@ -689,3 +689,21 @@ test("changing revealDistance mid-gesture keeps the claim and applies to the hel
   await waitFor(() => expect(ring()).not.toBeNull());
   window.dispatchEvent(pointer("pointerup", { x: 125, y: 100, id: 1 }));
 });
+
+test("a ring left by a gesture that a radius change cut short does not outlive the next press", async () => {
+  const tree = (radius: number) => (
+    <div data-testid="game-viewport" style={{ width: 320, height: 320 }}>
+      <FloatingJoystick radius={radius} revealDistance={8} onChange={() => {}} />
+    </div>
+  );
+  const view = render(tree(58));
+  const host = view.getByTestId("game-viewport");
+  host.dispatchEvent(pointer("pointerdown", { x: 100, y: 100, id: 1 }));
+  window.dispatchEvent(pointer("pointermove", { x: 140, y: 100, id: 1 }));
+  await waitFor(() => expect(ring()).not.toBeNull());
+  view.rerender(tree(70));
+  host.dispatchEvent(pointer("pointerdown", { x: 200, y: 200, id: 2 }));
+  window.dispatchEvent(pointer("pointermove", { x: 203, y: 200, id: 2 }));
+  await waitFor(() => expect(ring()).toBeNull());
+  window.dispatchEvent(pointer("pointerup", { x: 203, y: 200, id: 2 }));
+});

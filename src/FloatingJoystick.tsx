@@ -176,6 +176,8 @@ export function FloatingJoystick({
       activePointer.current = event.pointerId;
       origin.current = { x: event.clientX, y: event.clientY };
       revealed.current = false;
+      // A ring left from a gesture that an effect restart cut short must not outlive this press.
+      setVisual(NEUTRAL);
       updateVector(event);
     };
 
