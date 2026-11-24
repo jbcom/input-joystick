@@ -19,6 +19,7 @@ wrong, and leaves everything that is a game's own decision to the game.
 | The stick reacts outside the game view | Touches are hit-tested against a host element you choose. |
 | The stick takes a press meant for looking | A `claimArea`, such as `claimWidthFraction("left", 0.4)`, says which presses it claims. |
 | A drag that starts on a station also steers | A pointer registry: the stick never takes a pointer another owner holds, and refuses its own to others. |
+| A camera needs pan, pinch and wheel beside the stick | `createCameraPanZoomInput` claims up to two pointers in the same registry and emits pan, scale and twist steps. |
 | Desktop testing needs a second input path | `useKeyboardVectorMap` emits the same `{ x, y }` shape. |
 
 ## What it leaves to you

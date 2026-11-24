@@ -90,6 +90,45 @@ function LookSurface() {
 Outside React, use `pointerOwnership.claim(pointerId, owner)`, `release` and `ownerOf` directly, and
 `pointerOwnership.attach()` so claims are released when a pointer ends or the window loses focus.
 
+## Pan and zoom a camera beside the stick
+
+`createCameraPanZoomInput` is the other half of a mobile 3D game's controls: drag to pan, pinch to
+zoom and twist, and on desktop a mouse drag and the wheel. Give it the stick's registry and the other
+side of the screen, and the two never take one finger:
+
+```tsx
+import {
+  FloatingJoystick,
+  claimWidthFraction,
+  createCameraPanZoomInput,
+  createPointerOwnership,
+} from "input-joystick";
+
+const ownership = createPointerOwnership();
+
+<FloatingJoystick
+  ownership={ownership}
+  claimArea={claimWidthFraction("left", 0.4)}
+  onChange={onMove}
+/>;
+
+const camera = createCameraPanZoomInput({
+  element: viewport,
+  ownership,
+  claimArea: claimWidthFraction("right", 0.6),
+  allowMouseDrag: true,
+  allowWheel: true,
+  onChange({ pan, scale, twist, anchor }) {
+    // Move, zoom and turn your camera; the package has no camera model.
+  },
+});
+// camera.dispose() when the viewport leaves the scene.
+```
+
+`pan` is in pixels, `scale` is above 1 to zoom in, `twist` is in radians clockwise on screen and
+`anchor` is the focal point in the element's own pixels. Set `touch-action: none` on the viewport.
+See the [API reference](./API/#createcamerapanzoominput) for the cancellation rules.
+
 ## Keep controls tappable
 
 A button, link or form control inside the host keeps its own taps. For anything else that must not

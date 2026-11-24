@@ -1,3 +1,19 @@
+export {
+  type CameraPoint,
+  DEFAULT_WHEEL_STEP,
+  normalizeWheelDelta,
+  type TwoFingerGesture,
+  twoFingerGesture,
+  wheelZoomScale,
+} from "./cameraGesture.js";
+export {
+  type CameraGestureChange,
+  type CameraGestureEnd,
+  type CameraGestureSource,
+  type CameraPanZoomInput,
+  type CameraPanZoomInputOptions,
+  createCameraPanZoomInput,
+} from "./cameraPanZoomInput.js";
 export { type ClaimArea, type ClaimRect, claimWidthFraction } from "./claimArea.js";
 export { FloatingJoystick, type FloatingJoystickProps } from "./FloatingJoystick.js";
 export {

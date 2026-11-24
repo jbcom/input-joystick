@@ -57,6 +57,44 @@ tests and multi-surface apps. The shared instance is inert until something calls
 passing that rectangle to a function keeps one coordinate system and lets a game use a fraction, a
 rectangle or a circle without the package learning each shape.
 
+## Camera input is one controller over pure maths, claims two pointers, and mouse is opt-in
+
+**Decision.** `createCameraPanZoomInput` emits pan, scale and twist steps from up to two pointers,
+plus an opt-in mouse drag and wheel. The arithmetic is separate pure functions (`twoFingerGesture`,
+`normalizeWheelDelta`, `wheelZoomScale`). It shares `PointerOwnership` with the stick, look and tap
+input and has no camera model.
+
+**Why.** Every 3D game was hand-rolling this next to the stick, and the bug is the same one the
+registry exists for: a finger that is two things. Options weighed:
+
+- *A camera model in the package* (bounded ground pose, easing). Rejected: it needs a renderer's
+  coordinates and limits, which are the game's, and it would drag a renderer's vocabulary into an input
+  package. The steps are renderer-neutral; the pose maths is a separate package.
+- *Extending `createLookInput`.* Rejected: look is one claimed pointer and unbounded yaw with pointer
+  lock; pan and pinch need two contacts, a focal point and no lock. Folding them together would give
+  look a second, unrelated state machine.
+- *One controller over shared pure maths.* Chosen: the gesture maths is testable with plain numbers
+  and reusable by a game with its own pointer handling, and the controller follows look's protocol.
+
+**Conventions.** Scale is a ratio above 1 to zoom in for both pinch and wheel; hand-rolled cameras
+often pass the reciprocal (the board camera's span ratio is before over after), so the docs state the
+direction and a test pins the relationship. The wheel step is a multiplicative base (default
+`1.0015`) and not a natural-log rate, because `0.0015` is not `ln(1.0015)` and cameras tuned on the
+base should carry over exactly. Twist is radians in `[-PI, PI]`, positive clockwise on screen, and is
+always reported for a pinch; ignoring it is free, so there is no option to switch it off.
+
+**Defaults.** `allowMouseDrag` and `allowWheel` default to `false`, matching `allowMouse` on the stick
+and `allowMouseDrag` on look: each takes over default browser behavior (scrolling the page, text
+selection) or competes with pointer-lock aim, so a game opts in. Pen does not pan, as with look. The
+camera claims up to two pointers where the stick and look claim one, and a second finger must pass
+the same claim-area and ownership checks as the first, so a finger landing in the stick's zone is the
+stick's. The wheel ignores `claimArea`, which is typed on `PointerEvent` and not widened, so existing
+predicates that read `pointerType` keep compiling.
+
+**Internal.** The interactive-target selector moved into one module shared by look, tap and camera
+input. `FloatingJoystick` keeps its narrower list: widening it would change which presses the stick
+accepts, which is a behavior change for another PR.
+
 ## The default host selector stays
 
 **Decision.** `hostSelector` still defaults to `[data-testid="game-viewport"]`.
