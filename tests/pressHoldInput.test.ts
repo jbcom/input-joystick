@@ -145,6 +145,16 @@ test("pointer cancel, capture loss, blur, reset and disposal discard a held pres
   expect(vi.getTimerCount()).toBe(0);
 });
 
+test("a focused control blurred by the very press being held does not discard the hold", () => {
+  const { element, onHold } = setup();
+  const control = document.createElement("button");
+  element.append(control);
+  pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  control.dispatchEvent(new FocusEvent("blur", { bubbles: false }));
+  vi.advanceTimersByTime(500);
+  expect(onHold).toHaveBeenCalledTimes(1);
+});
+
 test("two overlapping eligible presses cancel each other; a press outside the region is independent", () => {
   const { element, onHold } = setup({ claimArea: claimWidthFraction("right", 0.5) });
   pointer(element, "pointerdown", 1, { clientX: 20, isPrimary: true });

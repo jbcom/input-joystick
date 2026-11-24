@@ -112,9 +112,6 @@ test("cancel, capture loss, blur, explicit overlay reset and disposal discard he
   window.dispatchEvent(new Event("blur"));
   pointer(window, "pointerup");
   pointer(element, "pointerdown");
-  element.dispatchEvent(new Event("blur"));
-  pointer(window, "pointerup");
-  pointer(element, "pointerdown");
   input.reset();
   pointer(window, "pointerup");
   pointer(element, "pointerdown");
@@ -124,6 +121,18 @@ test("cancel, capture loss, blur, explicit overlay reset and disposal discard he
   pointer(element, "pointerdown");
   pointer(window, "pointerup");
   expect(onTap).not.toHaveBeenCalled();
+});
+
+test("an element inside the page losing focus is not the window blurring: the press still taps", () => {
+  const { element, onTap } = setup();
+  const control = document.createElement("button");
+  element.append(control);
+  pointer(element, "pointerdown");
+  // Pressing the host moves focus off a focused control; its blur must not discard the press.
+  control.dispatchEvent(new FocusEvent("blur", { bubbles: false }));
+  element.dispatchEvent(new Event("blur"));
+  pointer(window, "pointerup");
+  expect(onTap).toHaveBeenCalledTimes(1);
 });
 
 test("UI controls, unknown devices, other mouse buttons and live claim-area rejection cannot tap", () => {

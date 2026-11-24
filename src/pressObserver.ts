@@ -186,7 +186,9 @@ export function observePresses<D>({
   win.addEventListener("pointerup", onUp, true);
   win.addEventListener("pointercancel", onCancel, true);
   win.addEventListener("lostpointercapture", onCancel, true);
-  win.addEventListener("blur", reset, true);
+  // Bubble phase: a capture listener on window would also hear any focused element losing focus,
+  // such as a HUD button blurred by the very press being held.
+  win.addEventListener("blur", reset);
   doc.addEventListener("mousemove", trackLockedMouse, true);
   doc.addEventListener("pointerlockchange", reset);
   let disposed = false;
@@ -201,7 +203,7 @@ export function observePresses<D>({
       win.removeEventListener("pointerup", onUp, true);
       win.removeEventListener("pointercancel", onCancel, true);
       win.removeEventListener("lostpointercapture", onCancel, true);
-      win.removeEventListener("blur", reset, true);
+      win.removeEventListener("blur", reset);
       doc.removeEventListener("mousemove", trackLockedMouse, true);
       doc.removeEventListener("pointerlockchange", reset);
     },
