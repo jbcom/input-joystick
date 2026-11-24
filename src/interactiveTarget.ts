@@ -19,12 +19,16 @@ export interface InteractiveTargetOptions {
   allowControls?: boolean;
 }
 
+/** The `button`, `a`, `summary` or `[role="button"]` that `target` is, or sits inside; otherwise `null`. */
+export function closestControl(target: EventTarget | null): Element | null {
+  return (target as Element | null)?.closest?.(pressable) ?? null;
+}
+
 /** Whether `target`, or an ancestor, is a control, link, editable region or `data-joystick-ignore` subtree. */
 export function isInteractiveTarget(
   target: EventTarget | null,
   { allowControls = false }: InteractiveTargetOptions = {}
 ): boolean {
-  const element = target as Element | null;
-  if (element?.closest?.(reserved) != null) return true;
-  return !allowControls && element?.closest?.(pressable) != null;
+  if ((target as Element | null)?.closest?.(reserved) != null) return true;
+  return !allowControls && closestControl(target) !== null;
 }

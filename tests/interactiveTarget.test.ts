@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "vitest";
-import { isInteractiveTarget } from "../src/interactiveTarget";
+import { closestControl, isInteractiveTarget } from "../src/interactiveTarget";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -72,6 +72,25 @@ test("allowing controls frees buttons, links, summaries and role buttons but nev
     expect(isInteractiveTarget(host.querySelector(`#${id}`), options), id).toBe(true);
   }
   expect(isInteractiveTarget(host.querySelector("#button"), { allowControls: false })).toBe(true);
+});
+
+test("the closest control is the nearest button, link, summary or role button, else null", () => {
+  const host = mount(`
+    <a id="link" href="#x"><button id="button"><span id="inside"></span></button></a>
+    <details><summary id="summary"><b id="bold"></b></summary></details>
+    <div id="role" role="button"></div>
+    <input id="input" />
+    <div id="plain"></div>
+  `);
+  const closest = (id: string) => closestControl(host.querySelector(`#${id}`));
+  expect(closest("inside")).toBe(host.querySelector("#button"));
+  expect(closest("link")).toBe(host.querySelector("#link"));
+  expect(closest("bold")).toBe(host.querySelector("#summary"));
+  expect(closest("role")).toBe(host.querySelector("#role"));
+  expect(closest("input")).toBeNull();
+  expect(closest("plain")).toBeNull();
+  expect(closestControl(null)).toBeNull();
+  expect(closestControl(window)).toBeNull();
 });
 
 test("plain content, non-editable content, missing targets and non-elements are not interactive", () => {

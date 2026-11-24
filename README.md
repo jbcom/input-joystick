@@ -123,7 +123,7 @@ focus.
 | `PressHold`, `PressHoldInputOptions`, `PressHoldInput` | types | The hold's position and target, and the recognizer's options and lifecycle methods. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
-| `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel. |
+| `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel, and an opt-in `panFromControls` so a pan can start on a button or link (its click is suppressed once the press passes the tap slop). |
 | `CameraGestureChange`, `CameraGestureSource`, `CameraGestureEnd`, `CameraPanZoomInputOptions`, `CameraPanZoomInput` | types | A step's `source`, `pan`, `scale`, `twist` and `anchor`, how a gesture ended, and the controller's options and lifecycle methods. |
 | `twoFingerGesture(before, after)` | function | Pure two-finger pan, pinch scale and twist for one step of two fingers. |
 | `normalizeWheelDelta(delta, deltaMode, pageSize)`, `wheelZoomScale(pixels, step)`, `DEFAULT_WHEEL_STEP` | functions, value | Wheel deltas in pixels across pixel, line and page modes, and the zoom scale a wheel movement applies. |

@@ -744,6 +744,8 @@ interface CameraPanZoomInputOptions {
   allowMouseDrag?: boolean;
   allowWheel?: boolean;
   wheelStep?: number;
+  panFromControls?: boolean;
+  maxDistance?: number;
 }
 interface CameraPanZoomInput {
   reset(): void;
@@ -781,7 +783,24 @@ rotate ignores it.
   camera would not take never holds a claim and is neither prevented nor reported. Pen never pans,
   as with look.
 - Interactive targets are the same as for look and tap input: controls, links, summaries, editable
-  content and `[data-joystick-ignore]`.
+  content and `[data-joystick-ignore]`, unless `panFromControls` frees controls and links (below).
+- `panFromControls` lets a pan start on a `button`, `a`, `summary` or `[role="button"]`, for a canvas
+  of controls such as graph nodes drawn as buttons. Such a press is claimed at once, so the stick
+  and look cannot take it, but it is **not yet a pan**: no step is reported, it is not prevented, and
+  a mouse is not captured (capturing at the press would redirect the control's own click away from
+  it). Released after moving no more than `maxDistance` (default 8 CSS pixels, finite and
+  nonnegative; `RangeError` otherwise) it is an ordinary click and `onEnd` is not called. The first
+  move past `maxDistance` makes it a pan: the mouse is captured, and the step reports the whole
+  displacement from where the press began, so the ground stays under the finger. When that pan is
+  released, the **next click that lands inside that control** is swallowed (`preventDefault` and
+  `stopImmediatePropagation` in the window capture phase), once. The suppression ends on the first
+  such click, on the next `pointerdown`, after 400 ms, or on `dispose()`, so a later real click is
+  never eaten. A cancelled pan swallows nothing, since the browser sends no click. A second finger
+  never waits: it turns a waiting press on a control into the first finger of a pinch, and a second
+  finger that lands on a control is a pinch finger straight away; their clicks are swallowed too.
+  Inputs, selects, textareas, editable content and `data-joystick-ignore` subtrees never start a
+  pan. The wheel then zooms over these controls as well. Set `touch-action: none` on the host (it
+  applies to its children) so native scrolling does not cancel a touch pan that begins on a control.
 - The camera claims **up to two** pointers: one pans, two pinch. A third finger is never claimed.
   A second finger must pass `claimArea` and ownership like the first. When it does not (it landed in
   the stick's zone, or a station holds it) the first finger carries on panning, unaffected.

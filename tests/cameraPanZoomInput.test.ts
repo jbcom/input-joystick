@@ -704,3 +704,283 @@ test("configuration rejects an unusable wheel step and a host without a window",
   const detached = document.implementation.createHTMLDocument().createElement("div");
   expect(() => createCameraPanZoomInput({ element: detached, onChange() {} })).toThrow("window");
 });
+
+function controlSetup(options: Partial<Parameters<typeof createCameraPanZoomInput>[0]> = {}) {
+  const view = setup({ panFromControls: true, ...options });
+  const link = document.createElement("a");
+  link.href = "#node";
+  const label = document.createElement("span");
+  link.append(label);
+  const button = document.createElement("button");
+  view.element.append(link, button);
+  const clicked = vi.fn();
+  button.addEventListener("click", clicked);
+  link.addEventListener("click", clicked);
+  const click = (target: EventTarget) => {
+    const event = new Event("click", { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    return event;
+  };
+  return { ...view, button, link, label, clicked, click };
+}
+
+test("a press on a control claims the pointer but pans nothing until it passes the slop", () => {
+  const { element, button, changes, onEnd, ownership, clicked, click } = (() => {
+    const registry = createPointerOwnership();
+    return { ...controlSetup({ ownership: registry }), ownership: registry };
+  })();
+  const down = pointer(button, "pointerdown", 1, 100, 100);
+  expect(ownership.ownerOf(1)).toBe("camera");
+  expect(down.defaultPrevented).toBe(false);
+  const near = pointer(win, "pointermove", 1, 105, 105);
+  expect(near.defaultPrevented).toBe(false);
+  pointer(win, "pointermove", 1, 108, 100);
+  expect(changes).toEqual([]);
+  pointer(win, "pointerup", 1, 108, 100);
+  expect(onEnd).not.toHaveBeenCalled();
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  // Still a click: nothing was swallowed.
+  expect(click(button).defaultPrevented).toBe(false);
+  expect(clicked).toHaveBeenCalledTimes(1);
+  expect(element.isConnected).toBe(true);
+});
+
+test("past the slop it pans from where it began, and swallows that control's click once", () => {
+  const { button, changes, ends, clicked, click, element } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  const first = pointer(win, "pointermove", 1, 112, 100);
+  expect(first.defaultPrevented).toBe(true);
+  expect(changes).toEqual([
+    { source: "drag", pan: { x: 12, y: 0 }, scale: 1, twist: 0, anchor: { x: 102, y: 80 } },
+  ]);
+  pointer(win, "pointermove", 1, 112, 130);
+  expect(changes[1].pan).toEqual({ x: 0, y: 30 });
+  pointer(win, "pointerup", 1, 112, 130);
+  expect(ends).toEqual(["release"]);
+  const swallowed = click(button);
+  expect(swallowed.defaultPrevented).toBe(true);
+  expect(clicked).not.toHaveBeenCalled();
+  // One-shot: the next click is a real one.
+  expect(click(button).defaultPrevented).toBe(false);
+  expect(clicked).toHaveBeenCalledTimes(1);
+  expect(element.isConnected).toBe(true);
+});
+
+test("a link works the same way, including a click on something inside it", () => {
+  const { link, label, changes, clicked, click } = controlSetup();
+  pointer(label, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 120, 100);
+  pointer(win, "pointerup", 1, 120, 100);
+  expect(changes).toHaveLength(1);
+  expect(click(label).defaultPrevented).toBe(true);
+  expect(clicked).not.toHaveBeenCalled();
+  expect(click(link).defaultPrevented).toBe(false);
+});
+
+test("the suppressed click is only the control's own, and only for a moment or until the next press", () => {
+  vi.useFakeTimers();
+  try {
+    const { element, button, link, click, clicked } = controlSetup();
+    const drag = (target: Element) => {
+      pointer(target, "pointerdown", 1, 100, 100);
+      pointer(win, "pointermove", 1, 130, 100);
+      pointer(win, "pointerup", 1, 130, 100);
+    };
+    // A click that lands elsewhere is not swallowed and leaves the suppression armed.
+    drag(button);
+    expect(click(element).defaultPrevented).toBe(false);
+    expect(click(link).defaultPrevented).toBe(false);
+    expect(click(button).defaultPrevented).toBe(true);
+    // It lapses after a short time.
+    drag(button);
+    vi.advanceTimersByTime(399);
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(click(button).defaultPrevented).toBe(false);
+    // A new press ends it too, and a new suppression replaces the old one.
+    drag(button);
+    drag(link);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(click(button).defaultPrevented).toBe(false);
+    expect(click(link).defaultPrevented).toBe(true);
+    drag(button);
+    pointer(element, "pointerdown", 2, 100, 100);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(click(button).defaultPrevented).toBe(false);
+    pointer(win, "pointerup", 2, 100, 100);
+    expect(clicked).toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a cancelled pan on a control swallows nothing, and a press cancelled before the slop reports no end", () => {
+  const { button, ends, changes, click, clicked, input } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 130, 100);
+  pointer(win, "pointercancel", 1);
+  expect(ends).toEqual(["cancel"]);
+  expect(click(button).defaultPrevented).toBe(false);
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointercancel", 1);
+  pointer(button, "pointerdown", 1, 100, 100);
+  input.reset();
+  expect(ends).toEqual(["cancel"]);
+  expect(changes).toHaveLength(1);
+  expect(clicked).toHaveBeenCalledTimes(1);
+});
+
+test("a pan that began on a control keeps ordinary onEnd semantics for the whole gesture", () => {
+  const { button, element, ends, changes } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 120, 100);
+  pointer(win, "pointerup", 1, 120, 100);
+  pointer(element, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 110, 100);
+  pointer(win, "pointerup", 1, 110, 100);
+  expect(ends).toEqual(["release", "release"]);
+  expect(changes).toHaveLength(2);
+});
+
+test("a second finger turns a waiting press on a control into a pinch, and its own control click is swallowed", () => {
+  const { button, link, element, changes, click, clicked } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(element, "pointerdown", 2, 140, 100);
+  pointer(win, "pointermove", 2, 160, 100);
+  expect(changes).toHaveLength(1);
+  expect(changes[0].source).toBe("pinch");
+  pointer(win, "pointerup", 1, 100, 100);
+  pointer(win, "pointerup", 2, 160, 100);
+  expect(click(button).defaultPrevented).toBe(true);
+  // A second finger that lands on a control is a pinch finger straight away, not a click.
+  pointer(element, "pointerdown", 3, 100, 100);
+  pointer(link, "pointerdown", 4, 140, 100);
+  pointer(win, "pointermove", 4, 170, 100);
+  expect(changes.at(-1)?.source).toBe("pinch");
+  pointer(win, "pointerup", 4, 170, 100);
+  pointer(win, "pointerup", 3, 100, 100);
+  expect(click(link).defaultPrevented).toBe(true);
+  expect(clicked).not.toHaveBeenCalled();
+});
+
+test("the slop is configurable, and zero turns any movement into a pan", () => {
+  const wide = controlSetup({ maxDistance: 20 });
+  pointer(wide.button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 120, 100);
+  expect(wide.changes).toEqual([]);
+  pointer(win, "pointermove", 1, 121, 100);
+  expect(wide.changes).toHaveLength(1);
+  pointer(win, "pointerup", 1, 121, 100);
+  wide.input.dispose();
+  const exact = controlSetup({ maxDistance: 0 });
+  pointer(exact.button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 100, 100);
+  expect(exact.changes).toEqual([]);
+  pointer(win, "pointermove", 1, 100.5, 100);
+  expect(exact.changes).toHaveLength(1);
+  pointer(win, "pointerup", 1, 100.5, 100);
+  for (const maxDistance of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    expect(() =>
+      createCameraPanZoomInput({ element: exact.element, onChange() {}, maxDistance })
+    ).toThrow(RangeError);
+  }
+});
+
+test("a non-finite move of a waiting press is ignored", () => {
+  const { button, changes, ends } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, Number.NaN, 100);
+  expect(changes).toEqual([]);
+  pointer(win, "pointerup", 1, 100, 100);
+  expect(ends).toEqual([]);
+});
+
+test("a mouse press on a control is captured only once it becomes a pan", () => {
+  const { button, element, captured, changes, ends, click, clicked } = controlSetup({
+    allowMouseDrag: true,
+  });
+  pointer(button, "pointerdown", 1, 100, 100, "mouse");
+  expect(element.setPointerCapture).not.toHaveBeenCalled();
+  pointer(win, "pointermove", 1, 104, 100, "mouse");
+  expect(element.setPointerCapture).not.toHaveBeenCalled();
+  pointer(win, "pointerup", 1, 104, 100, "mouse");
+  expect(click(button).defaultPrevented).toBe(false);
+  pointer(button, "pointerdown", 1, 100, 100, "mouse");
+  pointer(win, "pointermove", 1, 140, 100, "mouse");
+  expect(element.setPointerCapture).toHaveBeenCalledWith(1);
+  expect(captured.has(1)).toBe(true);
+  expect(changes).toHaveLength(1);
+  pointer(win, "pointerup", 1, 140, 100, "mouse");
+  expect(captured.has(1)).toBe(false);
+  expect(ends).toEqual(["release"]);
+  expect(click(button).defaultPrevented).toBe(true);
+  expect(clicked).toHaveBeenCalledTimes(1);
+});
+
+test("a mouse capture that throws on promotion cancels the press without a pan or an end", () => {
+  const { button, element, changes, ends, click, clicked } = controlSetup({ allowMouseDrag: true });
+  element.setPointerCapture = () => {
+    throw new Error("InvalidPointerId");
+  };
+  pointer(button, "pointerdown", 1, 100, 100, "mouse");
+  pointer(win, "pointermove", 1, 140, 100, "mouse");
+  expect(changes).toEqual([]);
+  expect(ends).toEqual([]);
+  expect(click(button).defaultPrevented).toBe(false);
+  expect(clicked).toHaveBeenCalledTimes(1);
+  pointer(win, "pointermove", 1, 150, 100, "mouse");
+  expect(changes).toEqual([]);
+});
+
+test("a host without capture methods still promotes a mouse press on a control", () => {
+  const { button, element, changes } = controlSetup({ allowMouseDrag: true });
+  element.setPointerCapture = undefined as never;
+  pointer(button, "pointerdown", 1, 100, 100, "mouse");
+  pointer(win, "pointermove", 1, 140, 100, "mouse");
+  expect(changes).toHaveLength(1);
+});
+
+test("text entry, editable content and opted-out subtrees never start a pan, even with panFromControls", () => {
+  const { element, ownership, changes } = (() => {
+    const registry = createPointerOwnership();
+    return { ...controlSetup({ ownership: registry }), ownership: registry };
+  })();
+  const input = document.createElement("input");
+  const editable = document.createElement("div");
+  editable.setAttribute("contenteditable", "true");
+  const ignored = document.createElement("div");
+  ignored.setAttribute("data-joystick-ignore", "true");
+  const inner = document.createElement("button");
+  ignored.append(inner);
+  element.append(input, editable, ignored);
+  for (const target of [input, editable, ignored, inner]) {
+    pointer(target, "pointerdown", 1, 100, 100);
+    pointer(win, "pointermove", 1, 140, 100);
+    expect(ownership.ownerOf(1)).toBeUndefined();
+  }
+  expect(changes).toEqual([]);
+});
+
+test("with panFromControls the wheel zooms over a control; without it the control keeps the wheel", () => {
+  const allowing = controlSetup({ allowWheel: true });
+  const zoomed = wheel(allowing.button, -100);
+  expect(zoomed.defaultPrevented).toBe(true);
+  expect(allowing.changes).toHaveLength(1);
+  allowing.input.dispose();
+  const strict = setup({ allowWheel: true });
+  const button = document.createElement("button");
+  strict.element.append(button);
+  expect(wheel(button, -100).defaultPrevented).toBe(false);
+  expect(strict.changes).toEqual([]);
+});
+
+test("disposing disarms a pending click suppression", () => {
+  const { button, input, click, clicked } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 140, 100);
+  pointer(win, "pointerup", 1, 140, 100);
+  input.dispose();
+  expect(click(button).defaultPrevented).toBe(false);
+  expect(clicked).toHaveBeenCalledTimes(1);
+});

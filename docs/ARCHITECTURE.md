@@ -258,6 +258,18 @@ must not cancel a gesture that just began. Where the window has no `ResizeObserv
 events still cover rotation and resize. Blur and the layout events cancel only this controller's
 contacts; unlike `registry.attach`, they never clear another owner's.
 
+With `panFromControls` a contact that began on a control is `pending`: claimed, so no other owner
+can take it, but not yet a gesture. A pending contact reports nothing, is not prevented and is not
+captured. Capture is the trap: a mouse captured to the host at the press has its click retargeted
+away from the control, so a plain click would never arrive. Promotion happens at the first move past
+`maxDistance`, which captures the mouse, marks the gesture begun and starts reporting steps from
+the press origin. A second finger promotes a waiting press at once, because two fingers are a
+pinch and never a click. `onEnd` is tied to a gesture having begun, not to contacts leaving the map,
+so a click-sized press on a control ends silently. A promoted contact that is released arms a
+one-shot suppression of the next click inside its control (window capture phase), disarmed by that
+click, by the next `pointerdown`, by a 400 ms timer and by `dispose()`, so it can never eat a later
+real click.
+
 The wheel is not a pointer and does not use the registry. It zooms about the cursor through
 `normalizeWheelDelta` and `wheelZoomScale`, ignores `claimArea` (typed on `PointerEvent`), skips
 interactive targets, and calls `preventDefault` only when it reports a step. The wheel and a mouse

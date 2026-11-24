@@ -40,7 +40,8 @@ Full detail in `docs/ARCHITECTURE.md`.
    attaches no listener until `attach` is called (the package stays `sideEffects: false`).
    `pointerOwnership.ts` and `claimArea.ts` stay free of React.
 9. The camera controller claims up to two pointers (invariant 1 is the stick's), claims last, and
-   removes a contact from its own map before releasing the claim. `cameraGesture.ts` and
+   removes a contact from its own map before releasing the claim. A press on a control
+   (`panFromControls`) is never prevented or mouse-captured until it passes the slop. `cameraGesture.ts` and
    `cameraPanZoomInput.ts` stay free of React and of any renderer. The camera's coverage is gated in
    the jsdom suite with stubbed observer, capture and ownership paths.
 10. The press-drag recognizer claims in the window capture phase, ahead of every other claimer, and
