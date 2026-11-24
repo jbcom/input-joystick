@@ -55,6 +55,7 @@ function mount() {
   const presses: PressDragPoint[] = [];
   const drags: PressDragPoint[] = [];
   const ends: PressDragEnd[] = [];
+  const endStacks: string[] = [];
   const looks: unknown[] = [];
   const cameras: CameraGestureChange[] = [];
   const taps: PointerEvent[] = [];
@@ -67,7 +68,11 @@ function mount() {
     allowMouse: true,
     onPress: (point) => presses.push(point),
     onDrag: (point) => drags.push(point),
-    onEnd: (end) => ends.push(end),
+    onEnd: (end) => {
+      ends.push(end);
+      // Where an unexpected end came from, for a failing assertion to print.
+      endStacks.push(new Error(end.reason).stack ?? "");
+    },
   });
   const look = createLookInput({
     element: host,
@@ -105,6 +110,7 @@ function mount() {
     presses,
     drags,
     ends,
+    endStacks,
     looks,
     cameras,
     taps,
@@ -125,7 +131,8 @@ const touch = (type: string, id: number, x: number, y: number): PointerEvent =>
   });
 
 test("a touch press on the target is not a stick, a look drag, a tap or a hold; one beside it is the stick's", async () => {
-  const { host, rect, ownership, vectors, presses, drags, ends, taps, holds, view } = mount();
+  const { host, rect, ownership, vectors, presses, drags, ends, endStacks, taps, holds, view } =
+    mount();
   await new Promise((resolve) => requestAnimationFrame(resolve));
   const { left, top } = rect();
   host.dispatchEvent(touch("pointerdown", 1, left + 80, top + 130));
@@ -144,7 +151,10 @@ test("a touch press on the target is not a stick, a look drag, a tap or a hold; 
   expect(holds).toHaveLength(0);
   expect(ends).toEqual([]);
   window.dispatchEvent(touch("pointerup", 1, left + 140, top + 150));
-  expect(ends.map((end) => end.reason)).toEqual(["drag"]);
+  expect(
+    ends.map((end) => end.reason),
+    endStacks.join("\n---\n")
+  ).toEqual(["drag"]);
   expect(ownership.ownerOf(1)).toBeUndefined();
   expect(taps).toHaveLength(0);
 
