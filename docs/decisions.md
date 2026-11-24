@@ -95,6 +95,41 @@ predicates that read `pointerType` keep compiling.
 input. `FloatingJoystick` keeps its narrower list: widening it would change which presses the stick
 accepts, which is a behavior change for another PR.
 
+## Press-and-hold and press-drag: one observer core, one claimer that goes first
+
+**Decision.** Press-and-hold is an observer like tap input (it never claims), and both sit on one
+internal tracker (`pressObserver`). The press-drag recognizer is the one new claimer: it takes the
+`pointerdown` in the window capture phase, with a caller-supplied `hitTarget`, through the shared
+`PointerOwnership`. `createTapInput` and `createPressHoldInput` learn `ignoreOwners`;
+`createTapInput` learns `maxDuration`; `FloatingJoystick` learns `revealDistance`;
+`createCameraPanZoomInput` learns `panFromControls`.
+
+**Why.** A game placing things needs a press on a preview to be none of: a stick, a look drag, a clean
+tap or a hold. Options weighed:
+
+- *Teach the stick and look about the target.* Rejected: each would need the game's hit test and
+  its own precedence rule, and a new claimer would mean editing all of them again.
+- *Claim late, in the host bubble phase like look.* Rejected: the stick listens on the window in the
+  bubble phase and look and camera on the host, so a late claimer races them by registration order.
+  Window capture is first for every one of them, so the claim is simply already there and their
+  existing `claim` check refuses.
+- *Have the tap observer skip every claimed pointer.* Rejected: the stick and look claim most
+  presses, and a tap in their zone is the documented behavior. `ignoreOwners` names only the owners
+  of gestures that consume the press, so the rest of the contract is unchanged.
+- *Fold hold into tap.* Rejected: they answer different questions (released soon, or still down
+  after a time) and a game wants one without the other. They share the part that is genuinely the
+  same, which is what a press is, what makes it a drag, and every way it is discarded.
+
+**Details.** A hold does not claim, so the same finger can be a stick and a hold; a tap that must
+not follow a hold takes a `maxDuration` shorter than `holdMs`, default unbounded so nothing
+changes. Controls are checked before the caller's hit test, because a world hit under a HUD button
+must not win; `allowControls` is for a target that is itself a button and never admits text entry.
+`revealDistance` defers only the drawing, never the claim or the vector, so the dead-zone and
+tap-slop relationship a game relies on is unchanged. `panFromControls` claims a press on a control
+at once but does not pan, prevent or mouse-capture it until the slop is passed: capturing at the
+press would redirect the control's own click, and a click-sized press must stay a click. Every new
+option defaults to the earlier behavior.
+
 ## The default host selector stays
 
 **Decision.** `hostSelector` still defaults to `[data-testid="game-viewport"]`.
