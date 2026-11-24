@@ -16,10 +16,11 @@ description: Module boundaries, invariants and intentional limits.
 | `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
 | `src/pressObserver.ts` | The pointer bookkeeping shared by the observers that never claim a pointer: eligibility, maximum excursion (coalesced samples, locked-mouse movement) and every way a held press is discarded. Internal, not exported. |
 | `src/tapInput.ts` | The tap observer: a clean release of a press from `pressObserver`, optionally within `maxDuration`. |
+| `src/pressDragInput.ts` | Plain DOM recognizer for a press that begins on a caller-supplied target: claims one pointer in the window capture phase, reports press, drag and end. No React or renderer. |
 | `src/pressHoldInput.ts` | The press-and-hold observer: a timer over a `pressObserver` press, with a target fixed at the press. |
 | `src/cameraPanZoomInput.ts` | Plain DOM controller for camera pan, pinch, twist and wheel zoom: up to two owned contacts, optional mouse drag and wheel, cancellation on every loss of the gesture. No React, renderer or camera model. |
 | `src/cameraGesture.ts` | Pure two-finger pan, pinch and twist, wheel-delta normalisation and wheel zoom scale. No DOM, no React, no renderer. |
-| `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap and camera input. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
+| `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap, press-drag and camera input; `allowControls` frees buttons and links but never text entry. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
 | `src/index.ts` | The public surface; nothing else is importable. |
 
 The math lives in its own module so the curve is unit-testable without simulating pointer events,
@@ -51,6 +52,10 @@ or a button widget is another owner in the same registry.
 8. **The registry is passive until attached.** Importing the package creates the shared registry but
    attaches no listener. A registry releases claims on its own only between `attach` and the matching
    detach; the component and the hook attach while mounted.
+9. **A press-drag claims first.** `createPressDragInput` claims in the window capture phase, ahead of
+   every other claimer, and checks controls before the caller's `hitTarget`. The tap and hold
+   observers never claim and yield only to owners named in `ignoreOwners` (see
+   [Press-drag lifecycle](#press-drag-lifecycle)).
 
 ## Pointer ownership
 
@@ -180,6 +185,39 @@ claimed it, and a still thumb can be a stick and a hold together. A tap that mus
 uses `maxDuration`, measured by the tracker from the press to the release on the
 `performance.now()` clock, so the decision is the same whatever order the two observers were
 created in.
+
+## Press-drag lifecycle
+
+`createPressDragInput` is the one recognizer here that claims a pointer for a target the caller
+defines, and its position in the event order is the design. Its `pointerdown` listener is on the
+window in the **capture** phase. The stick listens on the window in the bubble phase, look and the
+camera on the host in the bubble phase, and the tap and hold observers on the host in the capture
+phase, so the press-drag runs first for every one of them whatever order they were created in. It
+checks host, controls and the caller's `hitTarget` and then claims in the registry, last, like every
+other claimer; a pointer it does not take is never touched, so the stick, look and camera see it as
+they always did. A pointer it does take is already owned when they look: the stick and look find
+their `claim` refused and start nothing, and `createTapInput` and `createPressHoldInput`, given the
+recognizer's owner in `ignoreOwners`, skip it at their own `pointerdown`. The tap observers do not
+yield to every owner: the stick and look claim most presses and a tap in their zone must still work,
+so only the named owners of consuming gestures are skipped.
+
+The controls check runs before `hitTarget`. A world raycast answers for the ground under a HUD
+button, so the control must win first; `allowControls` is for the case where the target is itself a
+button, and it never admits text entry. State is one held press at most. Another pointer cancels it
+(a second finger means the player is doing something else) unless `cancelOnSecondPointer` is off,
+and is never claimed here.
+
+The press leaves the recognizer's state before its claim is released, so the registry's release
+listener re-enters, finds nothing, and an end is reported once whether it began as a `pointerup`, a
+`release(id, owner)`, `clear()` or the registry's own blur handling. `pointerup` and `pointercancel`
+are window capture listeners, ahead of the registry's bubble-phase handler, so a lift is a tap or a
+drag and not a cancel. Whether a press is a tap or a drag is decided by the maximum excursion, as
+for `createTapInput`: once it passes `maxDistance` it is a drag for good, even if it returns to
+where it began. Reported positions are per callback (`stepX`, `stepY`) so a consumer paces by travel
+without a clock or a stored last position. Under pointer lock client coordinates are frozen, so a
+locked mouse press is driven by `mousemove` relative movement from the origin instead, the same
+rule the tap observer follows, and pointer lock look is left running because it is not a claimed
+drag.
 
 ## Camera gesture lifecycle
 

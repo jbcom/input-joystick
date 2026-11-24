@@ -16,6 +16,8 @@ export default defineConfig({
       "tests/tapInput.browser.test.ts",
       "tests/pressHoldInput.test.ts",
       "tests/pressHoldInput.browser.test.ts",
+      "tests/pressDragInput.test.ts",
+      "tests/pressDragInput.browser.test.tsx",
       "tests/lookInput.browser.test.ts",
       // Real PointerEvent and WheelEvent coexistence of camera, stick and look. Camera coverage is
       // gated in the jsdom suite, where its listeners, observer and ownership paths are stubbed.
@@ -100,6 +102,7 @@ export default defineConfig({
         "src/tapInput.ts",
         "src/pressObserver.ts",
         "src/pressHoldInput.ts",
+        "src/pressDragInput.ts",
       ],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage/browser",

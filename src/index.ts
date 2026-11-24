@@ -32,6 +32,14 @@ export {
   pointerOwnership,
 } from "./pointerOwnership.js";
 export {
+  createPressDragInput,
+  type PressDragEnd,
+  type PressDragEndReason,
+  type PressDragInput,
+  type PressDragInputOptions,
+  type PressDragPoint,
+} from "./pressDragInput.js";
+export {
   createPressHoldInput,
   type PressHold,
   type PressHoldInput,

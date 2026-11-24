@@ -117,6 +117,8 @@ focus.
 | `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
 | `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
 | `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
+| `createPressDragInput(options)` | function | Claim a press that begins on a caller-supplied hit target, in the window capture phase and through the shared registry, and report its press, drag and end (`"tap"`, `"drag"` or `"cancel"`). `createTapInput` and `createPressHoldInput` take `ignoreOwners` so that press is neither a clean tap nor a hold. |
+| `PressDragPoint`, `PressDragEnd`, `PressDragEndReason`, `PressDragInputOptions`, `PressDragInput` | types | A press's origin, position, offset and step, how it ended, and the recognizer's options and lifecycle methods. |
 | `createPressHoldInput(options)` | function | Observe a press that stays put for `holdMs` and report it once with a target decided at the press, without claiming a pointer. `createTapInput` takes a `maxDuration` so a hold is not also a tap. |
 | `PressHold`, `PressHoldInputOptions`, `PressHoldInput` | types | The hold's position and target, and the recognizer's options and lifecycle methods. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |

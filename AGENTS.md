@@ -42,6 +42,10 @@ Full detail in `docs/ARCHITECTURE.md`.
    removes a contact from its own map before releasing the claim. `cameraGesture.ts` and
    `cameraPanZoomInput.ts` stay free of React and of any renderer. The camera's coverage is gated in
    the jsdom suite with stubbed observer, capture and ownership paths.
+10. The press-drag recognizer claims in the window capture phase, ahead of every other claimer, and
+    checks controls before the caller's `hitTarget`. The tap and hold observers never claim and yield
+    only to owners named in `ignoreOwners`. `pressDragInput.ts`, `pressHoldInput.ts` and
+    `pressObserver.ts` stay free of React and of any renderer.
 
 ## Keeping docs and tests in sync
 

@@ -4,7 +4,7 @@
 > pointer inside a host element and emits normalized vectors, a pure deadzone/clamp function, an
 > opt-in WASD/arrow-key co-map, a claim-area predicate for which presses the stick takes, and a
 > pointer-ownership registry that arbitrates which subsystem owns a finger, and renderer-neutral look,
-> tap, press-and-hold and camera pan/pinch/wheel controllers that share it. It owns pointer claiming and
+> tap, press-and-hold, press-drag and camera pan/pinch/wheel controllers that share it. It owns pointer claiming and
 > hit-testing; the game owns what the vector means and how it looks.
 
 ## Docs

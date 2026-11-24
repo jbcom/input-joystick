@@ -88,6 +88,7 @@ try {
       'createLookInput',
       'createTapInput',
       'createPressHoldInput',
+      'createPressDragInput',
       'createCameraPanZoomInput',
       'twoFingerGesture',
       'normalizeWheelDelta',
