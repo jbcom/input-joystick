@@ -87,6 +87,7 @@ try {
       'createPointerOwnership',
       'createLookInput',
       'createTapInput',
+      'createPressHoldInput',
       'createCameraPanZoomInput',
       'twoFingerGesture',
       'normalizeWheelDelta',

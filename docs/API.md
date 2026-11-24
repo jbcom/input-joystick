@@ -26,6 +26,10 @@ import {
   createTapInput,
   type TapInput,
   type TapInputOptions,
+  createPressHoldInput,
+  type PressHold,
+  type PressHoldInput,
+  type PressHoldInputOptions,
   type LookAngles,
   type LookState,
   type LookInput,
@@ -411,7 +415,10 @@ or decide when a game allows a command.
 interface TapInputOptions {
   element: HTMLElement;
   claimArea?: ClaimArea;
+  ownership?: PointerOwnership;
+  ignoreOwners?: readonly string[];
   maxDistance?: number;
+  maxDuration?: number;
   onTap: (event: PointerEvent) => void;
 }
 interface TapInput {
@@ -426,6 +433,18 @@ once. It does not claim ownership, capture pointers, prevent browser defaults, s
 request pointer lock or submit game actions. `maxDistance` defaults to 8 CSS pixels, must be finite
 and nonnegative, and measures maximum excursion from the press, including coalesced move samples
 and the release position. Moving away and back is a drag, even if the final distance is zero.
+
+`maxDuration` is the longest press, in milliseconds, that still counts as a tap. A longer press
+reports nothing, so a tap and a [`createPressHoldInput`](#createpressholdinput) on the same
+contact never both act: give the tap a `maxDuration` no longer than the hold's `holdMs`. It must be
+positive (`RangeError` otherwise) and defaults to unbounded, which keeps the earlier behavior.
+
+`ignoreOwners` names owners in `ownership` (default: the shared `pointerOwnership`) whose pointers
+are never taps. A press already claimed under one of those names is not followed and cancels no
+other tap. The tap observer otherwise reports a tap whoever holds the pointer, the stick and look
+included, so a clean tap in the stick's zone still works; list only the owners of gestures that
+consume the press themselves. The claim must already exist when the `pointerdown` reaches the host,
+so the claimer must claim in the window capture phase.
 
 Presses and releases must be inside a connected, nonzero-size host and pass `claimArea` when
 provided. Interactive controls, editable content and `[data-joystick-ignore]` are excluded. Use
@@ -452,6 +471,75 @@ without a tap, while a stationary release can become an action. Capture-phase wi
 observe release before look's bubble-phase cleanup releases mouse capture. Registration order does
 not change that result. A camera or world binding belongs to the caller; under pointer lock the
 caller may use its current center ray instead of the event's absolute coordinates.
+
+## `createPressHoldInput`
+
+```ts
+interface PressHold<T = undefined> {
+  pointerId: number;
+  pointerType: string;
+  x: number;
+  y: number;
+  target: T;
+}
+interface PressHoldInputOptions<T = undefined> {
+  element: HTMLElement;
+  claimArea?: ClaimArea;
+  ownership?: PointerOwnership;
+  ignoreOwners?: readonly string[];
+  target?: (event: PointerEvent, rect: ClaimRect) => T | null | undefined;
+  holdMs?: number;
+  maxDistance?: number;
+  onHold: (hold: PressHold<T>) => void;
+}
+interface PressHoldInput {
+  reset(): void;
+  dispose(): void;
+}
+function createPressHoldInput<T = undefined>(options: PressHoldInputOptions<T>): PressHoldInput;
+```
+
+Observes a press that stays put and calls `onHold` once, `holdMs` after the press, with the press
+position (client coordinates) and the `target` decided when it began. Like
+[`createTapInput`](#createtapinput) it does not claim ownership, capture pointers or prevent
+browser defaults, so the same finger can be a stick or a look drag while it holds.
+
+`holdMs` defaults to 500 and must be finite and positive; `maxDistance` defaults to 8 CSS pixels
+and must be finite and nonnegative (`RangeError` otherwise). A press is held only while all of the
+following stay true, and the hold is then discarded for good:
+
+- It began on a connected, nonzero-size host, as a primary-button mouse, touch or pen press that
+  passed `claimArea` and is not on an interactive control, editable content or
+  `[data-joystick-ignore]`.
+- It never moved more than `maxDistance` from where it began, counting coalesced samples
+  and, under pointer lock, relative mouse movement.
+- No other eligible press began while it was held. Two overlapping presses cancel each other, as
+  they do for taps; a press that fails the checks above, or has no `target`, is independent.
+- It was not cancelled, did not lose capture, the window did not blur, the pointer lock did not
+  change, and `reset()` or `dispose()` was not called.
+
+`target` is called once, at the press, with the `pointerdown` and the host's rectangle. Return what
+a hold on that press should act on (an entity, a cell, an id), or `null` or `undefined` to leave the
+press alone: it is then not held and does not cancel another hold. The result is fixed for the
+press, so a target that moves out from under a still finger is still the target. Omit `target` to
+hold anywhere; `hold.target` is then `undefined`.
+
+`ignoreOwners` and `ownership` work as for [`createTapInput`](#createtapinput): a press already
+claimed under a listed owner is not followed.
+
+A release after a hold is still a clean release for `createTapInput`; set its `maxDuration` below
+`holdMs` so a hold ends without a tap.
+
+```ts
+const hold = createPressHoldInput({
+  element: viewport,
+  target: (event) => entityUnder(event.clientX, event.clientY),
+  onHold({ target, x, y }) {
+    openMenuFor(target, x, y);
+  },
+});
+const tap = createTapInput({ element: viewport, maxDuration: 500, onTap });
+```
 
 ## Camera gesture maths
 

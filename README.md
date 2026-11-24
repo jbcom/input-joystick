@@ -117,6 +117,8 @@ focus.
 | `usePointerOwnership(owner, options?)` | hook | The registry bound to one owner, attached while mounted and released on unmount. |
 | `PointerOwnership`, `PointerOwnershipTarget`, `PointerReleaseListener`, `OwnedPointers`, `UsePointerOwnershipOptions` | types | The registry, its attach target and listener, the hook's result and options. |
 | `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
+| `createPressHoldInput(options)` | function | Observe a press that stays put for `holdMs` and report it once with a target decided at the press, without claiming a pointer. `createTapInput` takes a `maxDuration` so a hold is not also a tap. |
+| `PressHold`, `PressHoldInputOptions`, `PressHoldInput` | types | The hold's position and target, and the recognizer's options and lifecycle methods. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
 | `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel. |

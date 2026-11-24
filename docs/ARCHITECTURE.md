@@ -14,6 +14,9 @@ description: Module boundaries, invariants and intentional limits.
 | `src/usePointerOwnership.ts` | The React hook over the registry, bound to one owner. |
 | `src/useKeyboardVectorMap.ts` | The opt-in keyboard co-map. Independent of the component. |
 | `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
+| `src/pressObserver.ts` | The pointer bookkeeping shared by the observers that never claim a pointer: eligibility, maximum excursion (coalesced samples, locked-mouse movement) and every way a held press is discarded. Internal, not exported. |
+| `src/tapInput.ts` | The tap observer: a clean release of a press from `pressObserver`, optionally within `maxDuration`. |
+| `src/pressHoldInput.ts` | The press-and-hold observer: a timer over a `pressObserver` press, with a target fixed at the press. |
 | `src/cameraPanZoomInput.ts` | Plain DOM controller for camera pan, pinch, twist and wheel zoom: up to two owned contacts, optional mouse drag and wheel, cancellation on every loss of the gesture. No React, renderer or camera model. |
 | `src/cameraGesture.ts` | Pure two-finger pan, pinch and twist, wheel-delta normalisation and wheel zoom scale. No DOM, no React, no renderer. |
 | `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap and camera input. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
@@ -156,6 +159,27 @@ pointer positions are fixed in that state. Exceeding the same excursion threshol
 cancels the candidate even if later deltas return to the origin. Touch and pen candidates never
 consume mouse deltas. Lock-change events reset the set before another coordinate regime can
 complete a held gesture. Neither integration path changes ownership or camera angles.
+
+## Press-and-hold lifecycle
+
+`createPressHoldInput` is the second observer over `src/pressObserver.ts`, the tracker that
+`createTapInput` also uses, so the two share one definition of an eligible press, of excursion and
+of every way a press is discarded. The tracker neither claims, captures nor prevents anything. The
+hold adds one timer per followed press: it starts when the press is registered and is cleared
+whenever the press leaves the held set, whether by release, cancel, lost capture, blur, lock change,
+`reset()` or `dispose()`, and also when a second press replaces one with the same pointer id. When it
+fires it re-checks the press's cancellation flag, so a press cancelled by movement or an overlapping
+press after the timer started can never hold, and it reports once: the press stays tracked until it
+ends, but the timer is spent.
+
+The target is chosen by the caller's `target` function at the press, inside the tracker's `begin`
+step. A press with no target is not followed at all, so it is independent in the same way a press
+outside a `claimArea` is, and cancels nothing. Because the hold does not claim, it cannot arbitrate
+with a stick or look on the same finger and does not try to: the owner of the pointer is whoever
+claimed it, and a still thumb can be a stick and a hold together. A tap that must not follow a hold
+uses `maxDuration`, measured by the tracker from the press to the release on the
+`performance.now()` clock, so the decision is the same whatever order the two observers were
+created in.
 
 ## Camera gesture lifecycle
 
