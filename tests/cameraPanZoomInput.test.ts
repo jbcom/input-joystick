@@ -464,19 +464,102 @@ test("reset cancels held gestures, keeps other owners and does nothing when idle
   expect(ownership.ownerOf(5)).toBe("joystick");
 });
 
-test("dispose cancels, removes every listener, disconnects the observer and is safe to repeat", () => {
-  const { element, input, ends, onChange } = setup({ allowMouseDrag: true, allowWheel: true });
+test("a host removed from the document makes a lift a cancel, so a camera does not coast", () => {
+  const { element, ends } = setup();
+  pointer(element, "pointerdown", 1, 100, 100);
+  element.remove();
+  pointer(win, "pointerup", 1);
+  expect(ends).toEqual(["cancel"]);
+});
+
+test("window blur cancels this camera's contacts without clearing another owner's", () => {
+  const ownership = createPointerOwnership();
+  const { element, ends } = setup({ ownership });
+  ownership.claim(9, "joystick");
+  pointer(element, "pointerdown", 1, 100, 100);
+  win.dispatchEvent(new Event("blur"));
+  expect(ends).toEqual(["cancel"]);
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  expect(ownership.ownerOf(9)).toBe("joystick");
+});
+
+test("an element inside the page losing focus is not the window blurring", () => {
+  const { element, ends } = setup();
+  const field = document.createElement("input");
+  element.append(field);
+  pointer(element, "pointerdown", 1, 100, 100);
+  field.dispatchEvent(new Event("blur"));
+  expect(ends).toEqual([]);
+  pointer(win, "pointermove", 1, 120, 100);
+  expect(ends).toEqual([]);
+});
+
+test("dispose cancels, disconnects the observer, releases claims and is safe to repeat", () => {
+  const ownership = createPointerOwnership();
+  const { element, input, ends, onChange } = setup({
+    ownership,
+    allowMouseDrag: true,
+    allowWheel: true,
+  });
   pointer(element, "pointerdown", 1, 100, 100);
   input.dispose();
   input.dispose();
   expect(ends).toEqual(["cancel"]);
   expect(observers[0].disconnect).toHaveBeenCalledTimes(1);
   pointer(element, "pointerdown", 2, 100, 100);
+  expect(ownership.ownerOf(1)).toBeUndefined();
+  expect(ownership.ownerOf(2)).toBeUndefined();
   pointer(win, "pointermove", 1, 150, 100);
   wheel(element, -100);
   win.dispatchEvent(new Event("resize"));
   expect(onChange).not.toHaveBeenCalled();
   expect(ends).toEqual(["cancel"]);
+});
+
+test("dispose removes every listener it added, with the same capture flag", () => {
+  installResizeObserver(true);
+  const element = document.createElement("div");
+  document.body.append(element);
+  element.getBoundingClientRect = () => ({ ...rect }) as DOMRect;
+  type Registration = { target: EventTarget; type: string; listener: unknown; capture: boolean };
+  const record = (spy: ReturnType<typeof vi.spyOn>, target: EventTarget): Registration[] =>
+    spy.mock.calls.map(([type, listener, options]: unknown[]) => ({
+      target,
+      type: type as string,
+      listener,
+      capture:
+        typeof options === "boolean"
+          ? options
+          : ((options as AddEventListenerOptions)?.capture ?? false),
+    }));
+  const spies = [element, win, document].map((target) => ({
+    target,
+    add: vi.spyOn(target, "addEventListener"),
+    remove: vi.spyOn(target, "removeEventListener"),
+  }));
+  const input = createCameraPanZoomInput({
+    element,
+    onChange() {},
+    allowMouseDrag: true,
+    allowWheel: true,
+  });
+  input.dispose();
+  const added = spies.flatMap(({ target, add }) => record(add, target));
+  const removed = spies.flatMap(({ target, remove }) => record(remove, target));
+  expect(added.length).toBeGreaterThan(5);
+  for (const registration of added) {
+    expect(
+      removed.some(
+        (candidate) =>
+          candidate.target === registration.target &&
+          candidate.type === registration.type &&
+          candidate.listener === registration.listener &&
+          candidate.capture === registration.capture
+      ),
+      `${registration.type} (capture ${registration.capture}) was not removed`
+    ).toBe(true);
+  }
+  element.remove();
 });
 
 test("a mouse drag is opt-in, captures the pointer and releases it on the way out", () => {

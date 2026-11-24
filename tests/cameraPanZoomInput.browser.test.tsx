@@ -134,7 +134,7 @@ test("the wheel zooms in real WheelEvent line mode and is prevented only when it
   expect(changes).toHaveLength(1);
 });
 
-test("a camera, look and the stick share one registry without any finger being taken twice", () => {
+test("a camera and look share one registry without any finger being taken twice", () => {
   const ownership = createPointerOwnership();
   const element = document.createElement("div");
   element.style.cssText = "width: 400px; height: 300px; touch-action: none";

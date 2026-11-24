@@ -484,7 +484,7 @@ handling can reuse the exact numbers. One set of conventions covers every functi
 - A **scale** is a ratio: 1 is unchanged and above 1 is zoom in (fingers spreading, the wheel
   scrolled up). A camera that stores a distance, or "units across", divides by it. This is the
   reciprocal of the span ratio some hand-rolled cameras pass to their zoom function.
-- A **twist** is radians in `(-PI, PI]`, positive clockwise on screen: the way an angle grows when y
+- A **twist** is radians in `[-PI, PI]`, positive clockwise on screen: the way an angle grows when y
   points down. A camera whose yaw turns the opposite way subtracts it.
 
 `twoFingerGesture(before, after)` measures one step of two fingers that keep their identity
@@ -618,7 +618,8 @@ camera should stop: `pointercancel`, lost pointer capture, the claim being relea
 registry by anyone (`release`, `releaseAll`, `clear`, or the registry's own blur handling), window
 `blur`, a window `resize` or `orientationchange`, the host's size changing (a `ResizeObserver`
 where the window has one; a notification with no size change does not cancel), the host leaving the
-document, `reset()` and `dispose()`. A cancel of one finger of two drops only that finger; the
+document (seen at its next move or lift, which then reports `"cancel"` even for a lift), `reset()`
+and `dispose()`. Window `blur` means the window losing focus, not an element inside it losing focus. A cancel of one finger of two drops only that finger; the
 other keeps its claim and the gesture continues. Cancel always releases this camera's claims, and
 never another owner's.
 

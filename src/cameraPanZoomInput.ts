@@ -207,7 +207,9 @@ export function createCameraPanZoomInput({
   };
   // Window capture phase, so a release is seen before the registry's own bubble-phase pointerup
   // handler frees the claim and the end would be misreported as a cancel.
-  const onUp = (event: PointerEvent) => drop(event.pointerId, "release");
+  // A lift on a host that has left the document is a cancel: a camera must not coast on a dead host.
+  const onUp = (event: PointerEvent) =>
+    drop(event.pointerId, element.isConnected ? "release" : "cancel");
   const onCancel = (event: PointerEvent) => drop(event.pointerId, "cancel");
   const onWheel = (event: WheelEvent) => {
     if (isInteractiveTarget(event.target)) return;
@@ -246,7 +248,8 @@ export function createCameraPanZoomInput({
   win.addEventListener("pointermove", onMove);
   win.addEventListener("pointerup", onUp, true);
   win.addEventListener("pointercancel", onCancel, true);
-  win.addEventListener("blur", cancelAll, true);
+  // Bubble phase: a capture listener on window would also hear any focused element losing focus.
+  win.addEventListener("blur", cancelAll);
   win.addEventListener("resize", cancelAll);
   win.addEventListener("orientationchange", cancelAll);
   return {
@@ -263,7 +266,7 @@ export function createCameraPanZoomInput({
       win.removeEventListener("pointermove", onMove);
       win.removeEventListener("pointerup", onUp, true);
       win.removeEventListener("pointercancel", onCancel, true);
-      win.removeEventListener("blur", cancelAll, true);
+      win.removeEventListener("blur", cancelAll);
       win.removeEventListener("resize", cancelAll);
       win.removeEventListener("orientationchange", cancelAll);
     },

@@ -10,7 +10,7 @@
  *   content under the finger follows it, so a camera that grabs the ground subtracts it.
  * - A scale is a ratio where 1 is unchanged and above 1 is zoom in (fingers spreading, wheel
  *   scrolled up). A camera that thinks in distance or "units across" divides by it.
- * - A twist is an angle in radians in (-PI, PI], positive clockwise on screen (the direction an
+ * - A twist is an angle in radians in [-PI, PI], positive clockwise on screen (the direction an
  *   angle grows when y points down).
  */
 
@@ -36,7 +36,7 @@ export const DEFAULT_WHEEL_STEP = 1.0015;
 
 const LINE_PIXELS = 16;
 
-/** Wrap an angle into (-PI, PI]. */
+/** Wrap an angle into [-PI, PI]; the half-turn itself may come out as either sign. */
 export function wrapAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }

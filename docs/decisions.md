@@ -80,7 +80,7 @@ registry exists for: a finger that is two things. Options weighed:
 often pass the reciprocal (the board camera's span ratio is before over after), so the docs state the
 direction and a test pins the relationship. The wheel step is a multiplicative base (default
 `1.0015`) and not a natural-log rate, because `0.0015` is not `ln(1.0015)` and cameras tuned on the
-base should carry over exactly. Twist is radians in `(-PI, PI]`, positive clockwise on screen, and is
+base should carry over exactly. Twist is radians in `[-PI, PI]`, positive clockwise on screen, and is
 always reported for a pinch; ignoring it is free, so there is no option to switch it off.
 
 **Defaults.** `allowMouseDrag` and `allowWheel` default to `false`, matching `allowMouse` on the stick
