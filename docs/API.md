@@ -8,7 +8,13 @@ Every export is available from the package root, as ESM or CommonJS:
 ```ts
 import {
   FloatingJoystick,
+  DEFAULT_WHEEL_STEP,
   claimWidthFraction,
+  normalizeWheelDelta,
+  twoFingerGesture,
+  wheelZoomScale,
+  type CameraPoint,
+  type TwoFingerGesture,
   createPointerOwnership,
   createLookInput,
   createTapInput,
@@ -440,3 +446,54 @@ without a tap, while a stationary release can become an action. Capture-phase wi
 observe release before look's bubble-phase cleanup releases mouse capture. Registration order does
 not change that result. A camera or world binding belongs to the caller; under pointer lock the
 caller may use its current center ray instead of the event's absolute coordinates.
+
+## Camera gesture maths
+
+```ts
+interface CameraPoint { x: number; y: number }
+interface TwoFingerGesture {
+  pan: CameraPoint;
+  scale: number;
+  twist: number;
+  center: CameraPoint;
+}
+const DEFAULT_WHEEL_STEP: 1.0015;
+
+function twoFingerGesture(
+  before: readonly [CameraPoint, CameraPoint],
+  after: readonly [CameraPoint, CameraPoint]
+): TwoFingerGesture;
+function normalizeWheelDelta(delta: number, deltaMode: number, pageSize: number): number;
+function wheelZoomScale(pixels: number, step: number): number;
+```
+
+The pure arithmetic behind camera pan, pinch, twist and wheel zoom, free of the DOM, React and any
+renderer. It is also what `createCameraPanZoomInput` uses, so a game that drives its own pointer
+handling can reuse the exact numbers. One set of conventions covers every function and every
+`CameraGestureChange` the controller emits:
+
+- Points and pans are CSS pixels with y pointing down. A **pan** is how far the contact, or the
+  fingers' midpoint, moved since the last step. The content under the finger follows it, so a
+  camera that grabs the ground subtracts it, or inverts it to move the viewpoint instead.
+- A **scale** is a ratio: 1 is unchanged and above 1 is zoom in (fingers spreading, the wheel
+  scrolled up). A camera that stores a distance, or "units across", divides by it. This is the
+  reciprocal of the span ratio some hand-rolled cameras pass to their zoom function.
+- A **twist** is radians in `(-PI, PI]`, positive clockwise on screen: the way an angle grows when y
+  points down. A camera whose yaw turns the opposite way subtracts it.
+
+`twoFingerGesture(before, after)` measures one step of two fingers that keep their identity
+(`before[0]` and `after[0]` are the same finger). `pan` is the displacement of the midpoint, `scale`
+is the new span over the old, `twist` is the change of the angle between the fingers wrapped the
+short way, and `center` is the new midpoint, the point to zoom or turn about. A finger pair with no
+span before or after has no direction, so `scale` is 1 and `twist` is 0 for that step instead of
+`NaN` or a spurious half-turn.
+
+`normalizeWheelDelta(delta, deltaMode, pageSize)` returns a wheel delta in pixels whatever the
+device reports: `deltaMode` 0 is pixels already, 1 is lines (16 pixels each, which is what Firefox
+mice report) and 2 is pages (`pageSize` pixels each). Any other mode is read as pixels.
+
+`wheelZoomScale(pixels, step)` is `step ** -pixels`: scrolling up (negative pixels) zooms in.
+`DEFAULT_WHEEL_STEP` is `1.0015`, one pixel of travel scaling the view by that factor, so a line of
+16 pixels is about 2.4% and a notch of 100 pixels about 16%. The step is a multiplicative base
+rather than a natural-log rate so that numbers tuned in a camera that used `1.0015 ** pixels`
+carry over exactly.

@@ -87,6 +87,9 @@ try {
       'createPointerOwnership',
       'createLookInput',
       'createTapInput',
+      'twoFingerGesture',
+      'normalizeWheelDelta',
+      'wheelZoomScale',
     ]) {
       if (typeof api[name] !== 'function') throw new Error('missing export ' + name)
     }
@@ -99,6 +102,16 @@ try {
     const rect = { left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100 }
     if (!claims({ clientX: 49 }, rect) || claims({ clientX: 50 }, rect)) {
       throw new Error('claimWidthFraction')
+    }
+    const pinch = api.twoFingerGesture(
+      [{ x: 40, y: 50 }, { x: 60, y: 50 }],
+      [{ x: 30, y: 50 }, { x: 70, y: 50 }]
+    )
+    if (pinch.scale !== 2 || pinch.twist !== 0 || pinch.pan.x !== 0) {
+      throw new Error('twoFingerGesture: ' + JSON.stringify(pinch))
+    }
+    if (api.normalizeWheelDelta(3, 1, 800) !== 48 || api.wheelZoomScale(0, api.DEFAULT_WHEEL_STEP) !== 1) {
+      throw new Error('wheel maths')
     }
     const vector = api.normalizeJoystick({ x: 100, y: 0 }, 50, 0.1)
     if (vector.magnitude !== 1 || vector.x !== 1 || vector.y !== 0) {

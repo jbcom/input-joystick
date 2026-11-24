@@ -19,6 +19,8 @@ means and how the joystick looks.
   yaw, clamped pitch, explicit acquisition, optional primary-button mouse-drag fallback, and
   independent pointer ownership. Live sensitivity and vertical inversion preserve held gestures;
   semantic keyboard/HTML look commands retain their declared direction.
+- `twoFingerGesture`, `normalizeWheelDelta` and `wheelZoomScale`: the pure camera-gesture
+  arithmetic (pan, pinch, twist, wheel), usable without React, a DOM or a renderer.
 - `normalizeJoystick`: the pure deadzone, clamp and normalize function, usable without React or a
   DOM.
 - `useKeyboardVectorMap`: an opt-in WASD and arrow-key co-map that emits the same `{ x, y }` shape,
@@ -112,6 +114,9 @@ focus.
 | `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
+| `twoFingerGesture(before, after)` | function | Pure two-finger pan, pinch scale and twist for one step of two fingers. |
+| `normalizeWheelDelta(delta, deltaMode, pageSize)`, `wheelZoomScale(pixels, step)`, `DEFAULT_WHEEL_STEP` | functions, value | Wheel deltas in pixels across pixel, line and page modes, and the zoom scale a wheel movement applies. |
+| `CameraPoint`, `TwoFingerGesture` | types | A pixel point, and one measured two-finger step. |
 | `normalizeJoystick(raw, radius, deadZone)` | function | Pure deadzone, clamp and normalize math returning a `JoystickVector`. |
 | `JoystickVector`, `RawOffset` | types | `{ x, y, magnitude, angle }` and `{ x, y }`. |
 | `useKeyboardVectorMap(options)` | hook | Maps keys to unit vectors and calls `onChange({ x, y })`. |

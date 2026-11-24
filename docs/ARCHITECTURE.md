@@ -14,6 +14,7 @@ description: Module boundaries, invariants and intentional limits.
 | `src/usePointerOwnership.ts` | The React hook over the registry, bound to one owner. |
 | `src/useKeyboardVectorMap.ts` | The opt-in keyboard co-map. Independent of the component. |
 | `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
+| `src/cameraGesture.ts` | Pure two-finger pan, pinch and twist, wheel-delta normalisation and wheel zoom scale. No DOM, no React, no renderer. |
 | `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap and camera input. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
 | `src/index.ts` | The public surface; nothing else is importable. |
 
