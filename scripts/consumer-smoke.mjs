@@ -87,6 +87,7 @@ try {
       'createPointerOwnership',
       'createLookInput',
       'createTapInput',
+      'createCameraPanZoomInput',
       'twoFingerGesture',
       'normalizeWheelDelta',
       'wheelZoomScale',
@@ -113,6 +114,13 @@ try {
     if (api.normalizeWheelDelta(3, 1, 800) !== 48 || api.wheelZoomScale(0, api.DEFAULT_WHEEL_STEP) !== 1) {
       throw new Error('wheel maths')
     }
+    let rejected = false
+    try {
+      api.createCameraPanZoomInput({ element: {}, onChange() {}, wheelStep: 1 })
+    } catch (error) {
+      rejected = error instanceof RangeError
+    }
+    if (!rejected) throw new Error('createCameraPanZoomInput must reject a wheelStep of 1')
     const vector = api.normalizeJoystick({ x: 100, y: 0 }, 50, 0.1)
     if (vector.magnitude !== 1 || vector.x !== 1 || vector.y !== 0) {
       throw new Error('normalizeJoystick: ' + JSON.stringify(vector))

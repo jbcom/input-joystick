@@ -14,6 +14,7 @@ description: Module boundaries, invariants and intentional limits.
 | `src/usePointerOwnership.ts` | The React hook over the registry, bound to one owner. |
 | `src/useKeyboardVectorMap.ts` | The opt-in keyboard co-map. Independent of the component. |
 | `src/lookInput.ts` | Plain DOM controller for intentional pointer lock, mouse deltas and one owned touch-look drag. No React or renderer. |
+| `src/cameraPanZoomInput.ts` | Plain DOM controller for camera pan, pinch, twist and wheel zoom: up to two owned contacts, optional mouse drag and wheel, cancellation on every loss of the gesture. No React, renderer or camera model. |
 | `src/cameraGesture.ts` | Pure two-finger pan, pinch and twist, wheel-delta normalisation and wheel zoom scale. No DOM, no React, no renderer. |
 | `src/interactiveTarget.ts` | The interactive-target check (controls, links, editable content, `data-joystick-ignore`) shared by look, tap and camera input. Internal, not exported. `FloatingJoystick` keeps its own narrower list. |
 | `src/index.ts` | The public surface; nothing else is importable. |
@@ -26,7 +27,8 @@ or a button widget is another owner in the same registry.
 ## Invariants
 
 1. **One pointer.** While a pointer is claimed, every other `pointerdown` is ignored. A second finger
-   is the game's to use.
+   is the game's to use. This is the stick's invariant; the camera controller claims up to two (see
+   [Camera gesture lifecycle](#camera-gesture-lifecycle)).
 2. **Window listeners.** Pointer events are listened for on `window`, not on the wrapper, so a drag
    that leaves the host keeps steering and the wrapper can stay `pointer-events: none` over the
    canvas.
@@ -154,3 +156,52 @@ pointer positions are fixed in that state. Exceeding the same excursion threshol
 cancels the candidate even if later deltas return to the origin. Touch and pen candidates never
 consume mouse deltas. Lock-change events reset the set before another coordinate regime can
 complete a held gesture. Neither integration path changes ownership or camera angles.
+
+## Camera gesture lifecycle
+
+`createCameraPanZoomInput` is a DOM controller over `src/cameraGesture.ts`. It emits steps (pan,
+scale, twist, a local anchor) and has no camera model: the game owns the pose, its bounds and its
+easing. It follows the ownership protocol of the stick, look and tap input, with one deliberate
+difference: the "one pointer" invariant above is the stick's, and the camera claims up to two,
+because one finger pans and two pinch. A third finger is never claimed.
+
+A press is claimed after the same checks as look (touch or opt-in mouse, primary button, not
+already held, not an interactive target, inside the host, `claimArea`) and the registry claim is
+last, so a refused press holds nothing. A second finger faces the same checks. The stick and the
+camera therefore split a screen by `claimArea` alone (the left 40% for the stick, the right 60% for
+the camera) and by ownership where a finger lands in the wrong zone: a refused second finger
+changes nothing and the first keeps panning. Mouse is opt-in and exclusive, so absolute mouse
+motion never mixes with a touch pair.
+
+Held contacts live in a map in claim order, each with its last client position. A step is measured
+from that position to the new one, so no step depends on a clock or on listener order. With one
+contact a step is a drag. With two, the step is `twoFingerGesture` over the old and new pair, and the
+fingers keep their identity so a twist is a rotation. When a finger leaves a pair the survivor
+continues as a drag from its stored position, so there is no jump. A step that changes nothing is
+not reported.
+
+A contact is deleted from the map before its claim is released. The registry's release listener
+re-enters the controller, finds the contact gone and returns, so an end is never reported twice
+whether it began as a `pointerup`, a `release(id, owner)`, `clear()` or the registry's blur handling.
+The window `pointerup` and `pointercancel` listeners run in the capture phase, before the registry's
+bubble-phase `attach` handler frees the claim, so a lift is reported as a `"release"` and not
+mistaken for a `"cancel"`. `onEnd` is called once, when the last contact goes.
+
+Cancellation is any loss of the gesture the fingers did not intend: `pointercancel`, lost pointer
+capture, an ownership release, blur, a window resize or orientation change, the host changing size
+and the host leaving the document. The host's size is compared with the last recorded size in the
+`ResizeObserver` callback, because that observer reports once as it starts and a no-op notification
+must not cancel a gesture that just began. Where the window has no `ResizeObserver`, the window
+events still cover rotation and resize. Blur and the layout events cancel only this controller's
+contacts; unlike `registry.attach`, they never clear another owner's.
+
+The wheel is not a pointer and does not use the registry. It zooms about the cursor through
+`normalizeWheelDelta` and `wheelZoomScale`, ignores `claimArea` (typed on `PointerEvent`), skips
+interactive targets, and calls `preventDefault` only when it reports a step. The wheel and a mouse
+drag are separate opt-ins (`allowWheel`, `allowMouseDrag`) like every other mouse path in the
+package, because both take over default browser behavior.
+
+The camera's own coverage is gated in the jsdom suite, which stubs the observer, capture and
+ownership paths so every branch is reachable on any runner. The Chromium suite drives real
+`PointerEvent` and `WheelEvent` objects through a `FloatingJoystick` on the left zone and a camera
+on the right sharing one registry, and a camera with look.

@@ -38,6 +38,10 @@ Full detail in `docs/ARCHITECTURE.md`.
 8. The stick never takes a pointer another owner holds in its `PointerOwnership`, and the registry
    attaches no listener until `attach` is called (the package stays `sideEffects: false`).
    `pointerOwnership.ts` and `claimArea.ts` stay free of React.
+9. The camera controller claims up to two pointers (invariant 1 is the stick's), claims last, and
+   removes a contact from its own map before releasing the claim. `cameraGesture.ts` and
+   `cameraPanZoomInput.ts` stay free of React and of any renderer. The camera's coverage is gated in
+   the jsdom suite with stubbed observer, capture and ownership paths.
 
 ## Keeping docs and tests in sync
 

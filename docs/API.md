@@ -10,9 +10,15 @@ import {
   FloatingJoystick,
   DEFAULT_WHEEL_STEP,
   claimWidthFraction,
+  createCameraPanZoomInput,
   normalizeWheelDelta,
   twoFingerGesture,
   wheelZoomScale,
+  type CameraGestureChange,
+  type CameraGestureEnd,
+  type CameraGestureSource,
+  type CameraPanZoomInput,
+  type CameraPanZoomInputOptions,
   type CameraPoint,
   type TwoFingerGesture,
   createPointerOwnership,
@@ -497,3 +503,125 @@ mice report) and 2 is pages (`pageSize` pixels each). Any other mode is read as 
 16 pixels is about 2.4% and a notch of 100 pixels about 16%. The step is a multiplicative base
 rather than a natural-log rate so that numbers tuned in a camera that used `1.0015 ** pixels`
 carry over exactly.
+
+## `createCameraPanZoomInput`
+
+```ts
+type CameraGestureSource = "drag" | "pinch" | "wheel";
+type CameraGestureEnd = "release" | "cancel";
+interface CameraGestureChange {
+  source: CameraGestureSource;
+  pan: CameraPoint;
+  scale: number;
+  twist: number;
+  anchor: CameraPoint;
+}
+interface CameraPanZoomInputOptions {
+  element: HTMLElement;
+  onChange: (change: CameraGestureChange) => void;
+  onEnd?: (reason: CameraGestureEnd) => void;
+  ownership?: PointerOwnership;
+  owner?: string;
+  claimArea?: ClaimArea;
+  allowMouseDrag?: boolean;
+  allowWheel?: boolean;
+  wheelStep?: number;
+}
+interface CameraPanZoomInput {
+  reset(): void;
+  dispose(): void;
+}
+function createCameraPanZoomInput(options: CameraPanZoomInputOptions): CameraPanZoomInput;
+```
+
+A renderer-neutral camera input for mobile-first games: drag to pan, pinch to zoom, optional twist,
+and on desktop a mouse drag and the wheel. It emits steps and nothing else. It has no camera model,
+animation loop, storage or renderer dependency; what a pan, scale and twist mean for your camera is
+yours (see the conventions under [Camera gesture maths](#camera-gesture-maths)).
+
+Each `CameraGestureChange` is one step, not a running total:
+
+| `source` | Cause | `pan` | `scale` | `twist` |
+| --- | --- | --- | --- | --- |
+| `"drag"` | One claimed pointer moved (a finger, or a mouse with `allowMouseDrag`) | The pointer's displacement | 1 | 0 |
+| `"pinch"` | One of two claimed fingers moved | The midpoint's displacement | The span ratio | The angle change, radians |
+| `"wheel"` | A wheel turn (with `allowWheel`) | Zero | `wheelStep ** -pixels` | 0 |
+
+`anchor` is the focal point after the step, in the element's own CSS pixels with the origin at its
+top-left: the pointer, the fingers' midpoint or the wheel cursor. `anchor - pan` is where it was
+before the step, which is what a camera needs to drag the ground under a finger, and `anchor` is
+where to zoom about. A step that changes nothing (a move to the same position, a wheel with no
+vertical travel) is not reported. Twist is always reported for a pinch; a camera that does not
+rotate ignores it.
+
+### Camera pointer rules
+
+- A `pointerdown` is claimed only if the pointer is a touch (or a mouse, with `allowMouseDrag`), is
+  the primary button, is not already held, the event target is not interactive, the press is inside
+  the host rectangle, `claimArea` (when given) accepts it, and the pointer is not owned by anyone
+  else in `ownership`. The checks run in that order and the ownership claim is last, so a press the
+  camera would not take never holds a claim and is neither prevented nor reported. Pen never pans,
+  as with look.
+- Interactive targets are the same as for look and tap input: controls, links, summaries, editable
+  content and `[data-joystick-ignore]`.
+- The camera claims **up to two** pointers: one pans, two pinch. A third finger is never claimed.
+  A second finger must pass `claimArea` and ownership like the first. When it does not (it landed in
+  the stick's zone, or a station holds it) the first finger carries on panning, unaffected.
+- A mouse drag is exclusive: a mouse press is refused while a touch is held and a touch is refused
+  while a mouse is held. The mouse pointer is captured on the element after claiming, so releasing
+  outside the host still ends the drag. A failed capture releases the claim and starts nothing.
+- When one of two fingers lifts or is cancelled, the other continues as a one-finger pan from where
+  it is, with no jump.
+- Claimed presses and their moves are prevented, so set `touch-action: none` on the host to stop
+  native scrolling and zoom from cancelling the gesture.
+- `owner` defaults to a unique generated name, so two cameras never take one pointer; supply
+  different names for different subsystems if you name them. `ownership` defaults to the shared
+  `pointerOwnership`.
+
+```tsx
+// Left 40% steers with the stick; the rest pans and pinches the camera.
+const ownership = createPointerOwnership();
+<FloatingJoystick ownership={ownership} claimArea={claimWidthFraction("left", 0.4)} onChange={onMove} />;
+
+const camera = createCameraPanZoomInput({
+  element: viewport,
+  ownership,
+  claimArea: claimWidthFraction("right", 0.6),
+  allowMouseDrag: true,
+  allowWheel: true,
+  onChange({ pan, scale, twist, anchor }) {
+    // Keep the ground point under `anchor - pan` under `anchor`, then zoom and turn about it.
+  },
+  onEnd(reason) {
+    if (reason === "release") startInertia();
+  },
+});
+```
+
+### Wheel
+
+With `allowWheel: true` the wheel zooms about the cursor, using a non-passive listener on the host.
+The delta is normalised to pixels from pixel, line and page modes first
+(`normalizeWheelDelta`, with the host's height as a page), then scaled by `wheelStep`, which
+defaults to `DEFAULT_WHEEL_STEP` and must be finite and above 1 (`RangeError` otherwise). Browsers
+report a trackpad pinch as a ctrl-wheel, so it zooms through the same path. The wheel is not a
+pointer, so `claimArea` and ownership do not apply to it; wheel events on interactive targets are
+left alone. `preventDefault` is called only when a step is actually reported, so a horizontal-only
+scroll, a zero delta or an overflowing delta still scrolls the page. It never turns the wheel
+into a pan.
+
+### Ending and cancelling
+
+`onEnd(reason)` is called once when the last held contact ends. `"release"` means a finger or mouse
+button lifted, the time a camera may coast. `"cancel"` means the gesture was taken away, and a
+camera should stop: `pointercancel`, lost pointer capture, the claim being released from the
+registry by anyone (`release`, `releaseAll`, `clear`, or the registry's own blur handling), window
+`blur`, a window `resize` or `orientationchange`, the host's size changing (a `ResizeObserver`
+where the window has one; a notification with no size change does not cancel), the host leaving the
+document, `reset()` and `dispose()`. A cancel of one finger of two drops only that finger; the
+other keeps its claim and the gesture continues. Cancel always releases this camera's claims, and
+never another owner's.
+
+`reset()` cancels every held gesture and calls `onEnd("cancel")` if one was held; it is safe when
+idle. `dispose()` does the same, then removes every listener, unsubscribes from the registry and
+disconnects the observer. It is safe to repeat. Call it when the host leaves its scene.

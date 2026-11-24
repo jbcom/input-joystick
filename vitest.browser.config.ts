@@ -14,6 +14,9 @@ export default defineConfig({
       "tests/tapInput.test.ts",
       "tests/tapInput.browser.test.ts",
       "tests/lookInput.browser.test.ts",
+      // Real PointerEvent and WheelEvent coexistence of camera, stick and look. Camera coverage is
+      // gated in the jsdom suite, where its listeners, observer and ownership paths are stubbed.
+      "tests/cameraPanZoomInput.browser.test.tsx",
     ],
     passWithNoTests: false,
     browser: {

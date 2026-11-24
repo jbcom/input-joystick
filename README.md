@@ -19,6 +19,11 @@ means and how the joystick looks.
   yaw, clamped pitch, explicit acquisition, optional primary-button mouse-drag fallback, and
   independent pointer ownership. Live sensitivity and vertical inversion preserve held gestures;
   semantic keyboard/HTML look commands retain their declared direction.
+- `createCameraPanZoomInput`: a renderer-neutral camera input. One finger pans, two fingers pan,
+  pinch and twist, and on desktop an opt-in mouse drag and wheel pan and zoom. It claims up to two
+  pointers through the same registry as the stick, look and tap input, so a right-zone camera and a
+  left-zone stick never take one finger, and it cancels cleanly on `pointercancel`, lost capture,
+  blur and layout changes.
 - `twoFingerGesture`, `normalizeWheelDelta` and `wheelZoomScale`: the pure camera-gesture
   arithmetic (pan, pinch, twist, wheel), usable without React, a DOM or a renderer.
 - `normalizeJoystick`: the pure deadzone, clamp and normalize function, usable without React or a
@@ -114,6 +119,8 @@ focus.
 | `createTapInput(options)` | function | Observe stationary primary-button mouse, touch or pen intent without claiming a pointer. |
 | `createLookInput(options)` | function | Explicit pointer lock, touch look, unbounded yaw, clamped pitch and lifecycle clearing. |
 | `LookAngles`, `LookState`, `LookInputOptions`, `LookInput` | types | Radian angles, lock state, controller options and lifecycle methods. |
+| `createCameraPanZoomInput(options)` | function | Pan, pinch, twist and wheel zoom steps from up to two owned pointers, with opt-in mouse drag and wheel. |
+| `CameraGestureChange`, `CameraGestureSource`, `CameraGestureEnd`, `CameraPanZoomInputOptions`, `CameraPanZoomInput` | types | A step's `source`, `pan`, `scale`, `twist` and `anchor`, how a gesture ended, and the controller's options and lifecycle methods. |
 | `twoFingerGesture(before, after)` | function | Pure two-finger pan, pinch scale and twist for one step of two fingers. |
 | `normalizeWheelDelta(delta, deltaMode, pageSize)`, `wheelZoomScale(pixels, step)`, `DEFAULT_WHEEL_STEP` | functions, value | Wheel deltas in pixels across pixel, line and page modes, and the zoom scale a wheel movement applies. |
 | `CameraPoint`, `TwoFingerGesture` | types | A pixel point, and one measured two-finger step. |
