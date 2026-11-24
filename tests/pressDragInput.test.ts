@@ -293,7 +293,7 @@ test("pointer cancel, capture loss, blur, lock change, reset and disposal cancel
   expect(ownership.ownerOf(1)).toBeUndefined();
 });
 
-test("a claim released from the registry, a missing mouse button, a lift by another button and a lost host end it as a cancel", () => {
+test("a claim released from the registry, a missing mouse button and a lost host end it as a cancel", () => {
   const { element, ownership, onEnd } = setup({ allowMouse: true });
   pointer(element, "pointerdown", 1);
   ownership.release(1, "run");
@@ -307,19 +307,25 @@ test("a claim released from the registry, a missing mouse button, a lift by anot
   pointer(window, "pointermove", 1, { pointerType: "mouse", buttons: 0 });
   expect(onEnd).toHaveBeenCalledTimes(3);
   pointer(element, "pointerdown", 1);
-  pointer(window, "pointerup", 1, { button: 2 });
-  expect(onEnd).toHaveBeenCalledTimes(4);
-  expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "cancel" }));
-  pointer(element, "pointerdown", 1);
   element.remove();
   pointer(window, "pointermove", 1);
-  expect(onEnd).toHaveBeenCalledTimes(5);
+  expect(onEnd).toHaveBeenCalledTimes(4);
   document.body.append(element);
   pointer(element, "pointerdown", 1);
   element.remove();
   pointer(window, "pointerup", 1);
-  expect(onEnd).toHaveBeenCalledTimes(6);
+  expect(onEnd).toHaveBeenCalledTimes(5);
   expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "cancel" }));
+});
+
+test("any lift of the held pointer is its release, whichever button the event reports", () => {
+  const { element, onEnd } = setup();
+  for (const button of [0, 2, -1]) {
+    pointer(element, "pointerdown", 1);
+    pointer(window, "pointerup", 1, { button });
+    expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "tap" }));
+  }
+  expect(onEnd).toHaveBeenCalledTimes(3);
 });
 
 test("another pointer's move and lift are ignored, and non-finite positions are skipped", () => {
@@ -400,4 +406,89 @@ test("invalid options fail before attachment, and a callback-free recognizer sti
   a.dispose();
   b.dispose();
   element.remove();
+});
+
+test("a mouse press under pointer lock is not captured, which the browser refuses, and follows relative movement", () => {
+  const { element, ownership, onPress, onDragStart } = setup({ allowMouse: true });
+  let locked: Element | null = element;
+  Object.defineProperty(document, "pointerLockElement", { configurable: true, get: () => locked });
+  element.setPointerCapture = vi.fn(() => {
+    throw new DOMException("locked", "InvalidStateError");
+  });
+  const down = pointer(element, "pointerdown", 1, { pointerType: "mouse" });
+  expect(element.setPointerCapture).not.toHaveBeenCalled();
+  expect(down.defaultPrevented).toBe(true);
+  expect(ownership.ownerOf(1)).toBe("run");
+  expect(onPress).toHaveBeenCalledTimes(1);
+  document.dispatchEvent(
+    Object.assign(new Event("mousemove"), { movementX: 20, movementY: 0, buttons: 1 })
+  );
+  expect(onDragStart).toHaveBeenCalledTimes(1);
+  pointer(window, "pointerup", 1, { pointerType: "mouse" });
+  locked = null;
+});
+
+test("a mouse press on an allowed control is captured only once it drags, so the control keeps its click", () => {
+  const { element, ownership, onDragStart, onEnd } = setup({
+    allowMouse: true,
+    allowControls: true,
+  });
+  const capture = vi.fn();
+  element.setPointerCapture = capture;
+  const badge = document.createElement("button");
+  const inside = document.createElement("span");
+  badge.append(inside);
+  element.append(badge);
+  // A tap on the control never captures.
+  pointer(inside, "pointerdown", 1, { pointerType: "mouse" });
+  pointer(window, "pointermove", 1, { pointerType: "mouse", clientX: 153 });
+  expect(capture).not.toHaveBeenCalled();
+  pointer(window, "pointerup", 1, { pointerType: "mouse", clientX: 153 });
+  expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "tap" }));
+  // A drag from it is captured when it starts, and not before, and only once.
+  pointer(inside, "pointerdown", 1, { pointerType: "mouse" });
+  pointer(window, "pointermove", 1, { pointerType: "mouse", clientX: 190 });
+  pointer(window, "pointermove", 1, { pointerType: "mouse", clientX: 195 });
+  expect(capture).toHaveBeenCalledTimes(1);
+  expect(capture).toHaveBeenCalledWith(1);
+  expect(onDragStart).toHaveBeenCalledTimes(1);
+  pointer(window, "pointerup", 1, { pointerType: "mouse", clientX: 195 });
+  // Touch on a control never needs capture at all.
+  pointer(inside, "pointerdown", 2);
+  pointer(window, "pointermove", 2, { clientX: 190 });
+  pointer(window, "pointerup", 2, { clientX: 190 });
+  expect(capture).toHaveBeenCalledTimes(1);
+  // A refused deferred capture ends the press as a cancel with nothing reported as a drag.
+  element.setPointerCapture = () => {
+    throw new Error("InvalidPointerId");
+  };
+  pointer(inside, "pointerdown", 3, { pointerType: "mouse" });
+  pointer(window, "pointermove", 3, { pointerType: "mouse", clientX: 190 });
+  expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "cancel" }));
+  expect(onDragStart).toHaveBeenCalledTimes(2); // the mouse drag and the touch drag, not this one
+  expect(ownership.ownerOf(3)).toBeUndefined();
+});
+
+test("nothing is reported after the end when a callback resets or disposes mid-drag", () => {
+  const calls: string[] = [];
+  const holder: { input?: { reset(): void } } = {};
+  const { element, onDrag, onEnd } = setup({
+    onDragStart: () => {
+      calls.push("dragStart");
+      holder.input?.reset();
+    },
+  });
+  holder.input = {
+    reset: () => {
+      calls.push("reset");
+      pointer(window, "pointercancel", 1);
+    },
+  };
+  pointer(element, "pointerdown", 1, { clientX: 120 });
+  pointer(window, "pointermove", 1, { clientX: 160 });
+  expect(calls).toEqual(["dragStart", "reset"]);
+  expect(onDrag).not.toHaveBeenCalled();
+  expect(onEnd).toHaveBeenCalledTimes(1);
+  pointer(window, "pointerup", 1, { clientX: 160 });
+  expect(onEnd).toHaveBeenCalledTimes(1);
 });

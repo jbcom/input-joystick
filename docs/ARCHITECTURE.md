@@ -212,9 +212,13 @@ The press leaves the recognizer's state before its claim is released, so the reg
 listener re-enters, finds nothing, and an end is reported once whether it began as a `pointerup`, a
 `release(id, owner)`, `clear()` or the registry's own blur handling. `pointerup` and `pointercancel`
 are window capture listeners, ahead of the registry's bubble-phase handler, so a lift is a tap or a
-drag and not a cancel. Whether a press is a tap or a drag is decided by the maximum excursion, as
-for `createTapInput`: once it passes `maxDistance` it is a drag for good, even if it returns to
-where it began. Reported positions are per callback (`stepX`, `stepY`) so a consumer paces by travel
+drag and not a cancel. Whether a press is a tap or a drag is decided by the maximum excursion of the
+reported positions, as for `createTapInput` except that coalesced samples are not examined: once it
+passes `maxDistance` it is a drag for good, even if it returns to where it began. A mouse press is
+captured on the host so a drag that leaves it still ends, but not under pointer lock (the browser
+refuses it there) and, for a control admitted by `allowControls`, only once it drags, because
+capturing at the press would redirect the control's click. A callback that resets or disposes ends
+the press at once and nothing more is reported for it. Reported positions are per callback (`stepX`, `stepY`) so a consumer paces by travel
 without a clock or a stored last position. Under pointer lock client coordinates are frozen, so a
 locked mouse press is driven by `mousemove` relative movement from the origin instead, the same
 rule the tap observer follows, and pointer lock look is left running because it is not a claimed

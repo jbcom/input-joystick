@@ -1,5 +1,5 @@
 import type { ClaimArea } from "./claimArea.js";
-import { isInteractiveTarget } from "./interactiveTarget.js";
+import { closestControl, isInteractiveTarget } from "./interactiveTarget.js";
 import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
 
 /** Where a claimed press began, where it is, and how far it moved since the last report. */
@@ -88,6 +88,8 @@ interface Press {
   relativeX: number;
   relativeY: number;
   dragging: boolean;
+  /** A mouse press on a control, still to be captured when it first drags. */
+  captureDeferred: boolean;
 }
 
 let nextOwner = 0;
@@ -155,6 +157,17 @@ export function createPressDragInput({
     onEnd?.({ ...point(held), reason });
   };
   const cancel = () => finish("cancel");
+  // Capture keeps a mouse drag that leaves the host. Under pointer lock the document already routes
+  // the mouse to the host, and capturing there throws, so there is nothing to capture.
+  const capture = (pointerId: number) => {
+    if (doc.pointerLockElement === element) return true;
+    try {
+      element.setPointerCapture?.(pointerId);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const advance = (held: Press, x: number, y: number) => {
     if (!(Number.isFinite(x) && Number.isFinite(y))) return;
     held.x = x;
@@ -162,7 +175,16 @@ export function createPressDragInput({
     if (!held.dragging) {
       if (Math.hypot(x - held.originX, y - held.originY) <= maxDistance) return;
       held.dragging = true;
+      if (held.captureDeferred) {
+        held.captureDeferred = false;
+        if (!capture(held.pointerId)) {
+          cancel();
+          return;
+        }
+      }
       onDragStart?.(point(held));
+      // The callback may have reset or disposed: nothing is reported after the end.
+      if (press !== held) return;
     }
     report(held, onDrag);
   };
@@ -193,13 +215,12 @@ export function createPressDragInput({
     if (!hitTarget(event, rect)) return;
     // Last, so a press this recognizer would not take never holds a claim.
     if (!ownership.claim(event.pointerId, owner)) return;
-    if (event.pointerType === "mouse") {
-      try {
-        element.setPointerCapture?.(event.pointerId);
-      } catch {
-        ownership.release(event.pointerId, owner);
-        return;
-      }
+    // A mouse press on a control is captured only once it drags: capturing at the press would
+    // redirect the control's own click away from it.
+    const captureDeferred = event.pointerType === "mouse" && closestControl(event.target) !== null;
+    if (event.pointerType === "mouse" && !captureDeferred && !capture(event.pointerId)) {
+      ownership.release(event.pointerId, owner);
+      return;
     }
     event.preventDefault();
     press = {
@@ -214,6 +235,7 @@ export function createPressDragInput({
       relativeX: 0,
       relativeY: 0,
       dragging: false,
+      captureDeferred,
     };
     report(press, onPress);
   };
@@ -248,8 +270,9 @@ export function createPressDragInput({
   const onUp = (event: PointerEvent) => {
     const held = press;
     if (!held || event.pointerId !== held.pointerId) return;
-    // A lift on a host that has left the document, or by another button, is not a release.
-    const released = event.button === 0 && element.isConnected;
+    // A lift on a host that has left the document is not a release. Any other lift of this pointer
+    // is: a pointerup carries whichever button was released, and the press began as the primary.
+    const released = element.isConnected;
     if (released && !lockedMouse(held)) advance(held, event.clientX, event.clientY);
     finish(released ? (held.dragging ? "drag" : "tap") : "cancel");
   };

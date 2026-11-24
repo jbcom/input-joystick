@@ -142,6 +142,7 @@ test("a touch press on the target is not a stick, a look drag, a tap or a hold; 
   expect(vectors.every((vector) => vector.magnitude === 0)).toBe(true);
   await new Promise((resolve) => setTimeout(resolve, 250));
   expect(holds).toHaveLength(0);
+  expect(ends).toEqual([]);
   window.dispatchEvent(touch("pointerup", 1, left + 140, top + 150));
   expect(ends.map((end) => end.reason)).toEqual(["drag"]);
   expect(ownership.ownerOf(1)).toBeUndefined();
