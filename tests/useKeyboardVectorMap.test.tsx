@@ -6,8 +6,16 @@ afterEach(() => {
   cleanup();
 });
 
-function Harness({ onChange }: { onChange: (v: KeyboardVector) => void }) {
-  useKeyboardVectorMap({ onChange });
+function Harness({
+  onChange,
+  disabled,
+  keys,
+}: {
+  onChange: (v: KeyboardVector) => void;
+  disabled?: boolean;
+  keys?: Record<string, KeyboardVector>;
+}) {
+  useKeyboardVectorMap({ onChange, disabled, keys });
   return null;
 }
 
@@ -46,11 +54,7 @@ test("repeated keydown (OS auto-repeat) is ignored", () => {
 
 test("disabled attaches no listeners", () => {
   const onChange = vi.fn();
-  function Disabled() {
-    useKeyboardVectorMap({ onChange, disabled: true });
-    return null;
-  }
-  render(<Disabled />);
+  render(<Harness onChange={onChange} disabled />);
 
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
   window.dispatchEvent(new KeyboardEvent("keyup", { key: "w" }));
@@ -81,11 +85,7 @@ test("keyup of an unmapped key does not report a neutral vector", () => {
 
 test("a caller-supplied key map replaces the defaults", () => {
   const onChange = vi.fn();
-  function Custom() {
-    useKeyboardVectorMap({ onChange, keys: { j: { x: -1, y: 0 } } });
-    return null;
-  }
-  render(<Custom />);
+  render(<Harness onChange={onChange} keys={{ j: { x: -1, y: 0 } }} />);
 
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "j" }));
   expect(onChange).toHaveBeenLastCalledWith({ x: -1, y: 0 });
@@ -111,20 +111,16 @@ test("a mapped keydown is default-prevented and unmounting removes the listeners
 
 test("Escape, blur, disabling and unmount clear held input", () => {
   const onChange = vi.fn();
-  function Toggle({ disabled = false }: { disabled?: boolean }) {
-    useKeyboardVectorMap({ onChange, disabled });
-    return null;
-  }
-  const view = render(<Toggle />);
+  const view = render(<Harness onChange={onChange} />);
   for (const event of [new KeyboardEvent("keydown", { key: "Escape" }), new Event("blur")]) {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
     window.dispatchEvent(event);
     expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
   }
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
-  view.rerender(<Toggle disabled />);
+  view.rerender(<Harness onChange={onChange} disabled />);
   expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
-  view.rerender(<Toggle />);
+  view.rerender(<Harness onChange={onChange} />);
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
   view.unmount();
   expect(onChange).toHaveBeenLastCalledWith({ x: 0, y: 0 });
