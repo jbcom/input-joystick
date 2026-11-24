@@ -5,6 +5,7 @@ import { createPointerOwnership } from "../src/pointerOwnership";
 import {
   createPressHoldInput,
   type PressHold,
+  type PressHoldInput,
   type PressHoldInputOptions,
 } from "../src/pressHoldInput";
 import { createTapInput } from "../src/tapInput";
@@ -16,7 +17,9 @@ function setup<T = undefined>(options: Partial<PressHoldInputOptions<T>> = {}) {
   element.getBoundingClientRect = () => rect as DOMRect;
   document.body.append(element);
   const onHold = vi.fn<(hold: PressHold<T>) => void>();
-  const input = createPressHoldInput<T>({ element, onHold, ...options });
+  // The public overloads tie `target` to the type of `hold.target`; the helper varies both freely.
+  const create = createPressHoldInput as (options: PressHoldInputOptions<T>) => PressHoldInput;
+  const input = create({ element, onHold, ...options });
   disposals.push(() => {
     input.dispose();
     element.remove();
@@ -322,4 +325,24 @@ test("invalid options fail before attachment", () => {
   }
   const detached = document.implementation.createHTMLDocument().createElement("div");
   expect(() => createPressHoldInput({ element: detached, onHold })).toThrow("window");
+});
+
+test("the hold's target type is the target function's, and undefined when there is none", () => {
+  const { element } = setup();
+  const typed = createPressHoldInput({
+    element,
+    target: () => ({ id: "part" }),
+    onHold: ({ target }) => target.id,
+  });
+  const anywhere = createPressHoldInput({
+    element,
+    onHold: ({ target }) => {
+      const nothing: undefined = target;
+      return nothing;
+    },
+  });
+  // Omitting `target` while expecting one cannot type-check: the hold would carry `undefined`.
+  // @ts-expect-error a typed target needs a target function
+  const bad = createPressHoldInput<{ id: string }>({ element, onHold: ({ target }) => target.id });
+  for (const input of [typed, anywhere, bad]) input.dispose();
 });

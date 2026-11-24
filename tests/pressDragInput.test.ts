@@ -492,3 +492,61 @@ test("nothing is reported after the end when a callback resets or disposes mid-d
   pointer(window, "pointerup", 1, { clientX: 160 });
   expect(onEnd).toHaveBeenCalledTimes(1);
 });
+
+test("a step is measured from the last position a callback saw, so only a callback moves it", () => {
+  const onlyEnd = setup({ onPress: undefined, onDragStart: undefined, onDrag: undefined });
+  pointer(onlyEnd.element, "pointerdown", 1, { clientX: 100 });
+  pointer(window, "pointermove", 1, { clientX: 110 });
+  pointer(window, "pointermove", 1, { clientX: 120 });
+  pointer(window, "pointerup", 1, { clientX: 120 });
+  expect(onlyEnd.onEnd).toHaveBeenCalledWith(
+    expect.objectContaining({ reason: "drag", dx: 20, stepX: 20 })
+  );
+  onlyEnd.input.dispose();
+  // With only onDragStart the drag start is the last callback, and the end steps from it.
+  const onlyStart = setup({ onPress: undefined, onDrag: undefined });
+  pointer(onlyStart.element, "pointerdown", 1, { clientX: 100 });
+  pointer(window, "pointermove", 1, { clientX: 110 });
+  expect(onlyStart.onDragStart.mock.calls[0][0]).toMatchObject({ stepX: 10 });
+  pointer(window, "pointermove", 1, { clientX: 125 });
+  pointer(window, "pointerup", 1, { clientX: 125 });
+  expect(onlyStart.onEnd).toHaveBeenCalledWith(
+    expect.objectContaining({ reason: "drag", dx: 25, stepX: 15 })
+  );
+  onlyStart.input.dispose();
+  // Both drag callbacks see the same step for the move that starts the drag.
+  const both = setup();
+  pointer(both.element, "pointerdown", 1, { clientX: 100 });
+  pointer(window, "pointermove", 1, { clientX: 110 });
+  expect(both.onDragStart.mock.calls[0][0]).toMatchObject({ stepX: 10 });
+  expect(both.onDrag.mock.calls[0][0]).toMatchObject({ stepX: 10 });
+  pointer(window, "pointermove", 1, { clientX: 115 });
+  expect(both.onDrag.mock.calls[1][0]).toMatchObject({ stepX: 5 });
+  pointer(window, "pointerup", 1, { clientX: 115 });
+});
+
+test("a flick out and back inside one move event still starts a drag, from its coalesced samples", () => {
+  const { element, onDragStart, onEnd } = setup({ maxDistance: 8 });
+  pointer(element, "pointerdown", 1, { clientX: 120, clientY: 50 });
+  pointer(window, "pointermove", 1, {
+    clientX: 121,
+    clientY: 50,
+    getCoalescedEvents: () =>
+      [
+        { clientX: 140, clientY: 50 },
+        { clientX: 121, clientY: 50 },
+      ] as PointerEvent[],
+  });
+  expect(onDragStart).toHaveBeenCalledTimes(1);
+  expect(onDragStart.mock.calls[0][0]).toMatchObject({ x: 121, dx: 1 });
+  pointer(window, "pointerup", 1, { clientX: 121 });
+  expect(onEnd).toHaveBeenCalledWith(expect.objectContaining({ reason: "drag" }));
+  // Samples inside the threshold change nothing.
+  pointer(element, "pointerdown", 1, { clientX: 120, clientY: 50 });
+  pointer(window, "pointermove", 1, {
+    clientX: 122,
+    getCoalescedEvents: () => [{ clientX: 126, clientY: 50 }] as PointerEvent[],
+  });
+  pointer(window, "pointerup", 1, { clientX: 122 });
+  expect(onEnd).toHaveBeenLastCalledWith(expect.objectContaining({ reason: "tap" }));
+});

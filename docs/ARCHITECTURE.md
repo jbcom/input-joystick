@@ -213,7 +213,7 @@ listener re-enters, finds nothing, and an end is reported once whether it began 
 `release(id, owner)`, `clear()` or the registry's own blur handling. `pointerup` and `pointercancel`
 are window capture listeners, ahead of the registry's bubble-phase handler, so a lift is a tap or a
 drag and not a cancel. Whether a press is a tap or a drag is decided by the maximum excursion of the
-reported positions, as for `createTapInput` except that coalesced samples are not examined: once it
+positions, coalesced samples included, as for `createTapInput`: once it
 passes `maxDistance` it is a drag for good, even if it returns to where it began. A mouse press is
 captured on the host so a drag that leaves it still ends, but not under pointer lock (the browser
 refuses it there) and, for a control admitted by `allowControls`, only once it drags, because

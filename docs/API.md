@@ -570,14 +570,16 @@ browser refuses capture and the mouse is already routed to the host.
 | Callback | When |
 | --- | --- |
 | `onPress` | The press was claimed, at its origin. |
-| `onDragStart` | The press first moved more than `maxDistance` (default 8 CSS pixels; finite and nonnegative, `RangeError` otherwise) from its origin, measured at the reported pointer positions (coalesced samples are not examined). |
+| `onDragStart` | The press first moved more than `maxDistance` (default 8 CSS pixels; finite and nonnegative, `RangeError` otherwise) from its origin, counting the coalesced samples of a move, so a flick out and back inside one event still starts a drag. |
 | `onDrag` | Every move after that, including the one that started the drag. Fired right after `onDragStart` for that move. |
 | `onEnd` | Once, after the claim is released, with `reason`: `"tap"` for a release that never passed `maxDistance`, `"drag"` for a release after it did (moving back onto the origin does not undo a drag), `"cancel"` for everything else. |
 
 Every callback receives where the press began (`originX`, `originY`), where it is (`x`, `y`), the
 offset between them (`dx`, `dy`) and how far it moved since the previous callback of this press
 (`stepX`, `stepY`; from the origin for the first), so a game can pace a run by travel, say one cell
-per 24 CSS pixels, without keeping its own last position. The release position counts as a move
+per 24 CSS pixels, without keeping its own last position. Only a callback that exists moves the
+base of the next step, so a recognizer given only `onEnd` reports the whole drag as its step.
+`onDragStart` and `onDrag` see the same step for the move that starts the drag. The release position counts as a move
 before the end is reported. Nothing is reported after the end: a callback that calls `reset()` or
 `dispose()` ends the press at once and the remaining callbacks for that move are skipped.
 
@@ -659,7 +661,9 @@ following stay true, and the hold is then discarded for good:
 a hold on that press should act on (an entity, a cell, an id), or `null` or `undefined` to leave the
 press alone: it is then not held and does not cancel another hold. The result is fixed for the
 press, so a target that moves out from under a still finger is still the target. Omit `target` to
-hold anywhere; `hold.target` is then `undefined`.
+hold anywhere; `hold.target` is then typed and valued `undefined`. The function is overloaded so
+the type of `hold.target` always follows `target`: a typed target without a `target` function does
+not compile.
 
 `ignoreOwners` and `ownership` work as for [`createTapInput`](#createtapinput): a press already
 claimed under a listed owner is not followed.

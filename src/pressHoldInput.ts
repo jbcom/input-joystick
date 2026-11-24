@@ -60,7 +60,13 @@ interface HoldState<T> {
  * or a look drag at the same time. Releasing afterwards is still a clean release for
  * `createTapInput` unless its `maxDuration` is set shorter than `holdMs`.
  */
-export function createPressHoldInput<T = undefined>({
+export function createPressHoldInput(
+  options: PressHoldInputOptions<undefined> & { target?: undefined }
+): PressHoldInput;
+export function createPressHoldInput<T>(
+  options: PressHoldInputOptions<T> & { target: NonNullable<PressHoldInputOptions<T>["target"]> }
+): PressHoldInput;
+export function createPressHoldInput<T>({
   element,
   claimArea,
   ownership,

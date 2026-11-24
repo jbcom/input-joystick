@@ -139,8 +139,7 @@ export function createPressDragInput({
     stepX: held.x - held.reportedX,
     stepY: held.y - held.reportedY,
   });
-  const report = (held: Press, callback: ((point: PressDragPoint) => void) | undefined) => {
-    callback?.(point(held));
+  const markReported = (held: Press) => {
     held.reportedX = held.x;
     held.reportedY = held.y;
   };
@@ -168,12 +167,15 @@ export function createPressDragInput({
       return false;
     }
   };
-  const advance = (held: Press, x: number, y: number) => {
+  // `exceeded` is set when a coalesced sample of this move already passed `maxDistance`, so a flick
+  // out and back inside one event is still a drag.
+  const advance = (held: Press, x: number, y: number, exceeded = false) => {
     if (!(Number.isFinite(x) && Number.isFinite(y))) return;
     held.x = x;
     held.y = y;
+    let reported = false;
     if (!held.dragging) {
-      if (Math.hypot(x - held.originX, y - held.originY) <= maxDistance) return;
+      if (!exceeded && Math.hypot(x - held.originX, y - held.originY) <= maxDistance) return;
       held.dragging = true;
       if (held.captureDeferred) {
         held.captureDeferred = false;
@@ -182,11 +184,19 @@ export function createPressDragInput({
           return;
         }
       }
-      onDragStart?.(point(held));
-      // The callback may have reset or disposed: nothing is reported after the end.
-      if (press !== held) return;
+      if (onDragStart) {
+        onDragStart(point(held));
+        reported = true;
+        // The callback may have reset or disposed: nothing is reported after the end.
+        if (press !== held) return;
+      }
     }
-    report(held, onDrag);
+    if (onDrag) {
+      onDrag(point(held));
+      reported = true;
+    }
+    // The step is measured from the last position a callback saw, so only a callback moves it.
+    if (reported) markReported(held);
   };
   const lockedMouse = (held: Press) =>
     held.pointerType === "mouse" && doc.pointerLockElement === element;
@@ -237,7 +247,10 @@ export function createPressDragInput({
       dragging: false,
       captureDeferred,
     };
-    report(press, onPress);
+    if (onPress) {
+      onPress(point(press));
+      markReported(press);
+    }
   };
   const onMove = (event: PointerEvent) => {
     const held = press;
@@ -252,7 +265,12 @@ export function createPressDragInput({
     }
     event.preventDefault();
     // Locked client coordinates are fixed: the relative movement of `mousemove` drives the press.
-    if (!lockedMouse(held)) advance(held, event.clientX, event.clientY);
+    if (lockedMouse(held)) return;
+    const exceeded = (event.getCoalescedEvents?.() ?? []).some(
+      (sample) =>
+        Math.hypot(sample.clientX - held.originX, sample.clientY - held.originY) > maxDistance
+    );
+    advance(held, event.clientX, event.clientY, exceeded);
   };
   const onLockedMove = (event: MouseEvent) => {
     const held = press;
