@@ -138,8 +138,10 @@ test("a touch press on the target is not a stick, a look drag, a tap or a hold; 
   host.dispatchEvent(touch("pointerdown", 1, left + 80, top + 130));
   expect(ownership.ownerOf(1)).toBe("run");
   expect(presses).toHaveLength(1);
-  window.dispatchEvent(touch("pointermove", 1, left + 100, top + 130));
-  window.dispatchEvent(touch("pointermove", 1, left + 140, top + 150));
+  // Real pointer events target an element under the finger, so the window's capture phase runs
+  // before its bubble phase; dispatching on the window itself would run them in registration order.
+  host.dispatchEvent(touch("pointermove", 1, left + 100, top + 130));
+  host.dispatchEvent(touch("pointermove", 1, left + 140, top + 150));
   expect(drags.map((point) => [point.dx, point.dy])).toEqual([
     [20, 0],
     [60, 20],
@@ -150,7 +152,7 @@ test("a touch press on the target is not a stick, a look drag, a tap or a hold; 
   await new Promise((resolve) => setTimeout(resolve, 250));
   expect(holds).toHaveLength(0);
   expect(ends).toEqual([]);
-  window.dispatchEvent(touch("pointerup", 1, left + 140, top + 150));
+  host.dispatchEvent(touch("pointerup", 1, left + 140, top + 150));
   expect(
     ends.map((end) => end.reason),
     endStacks.join("\n---\n")
@@ -160,22 +162,22 @@ test("a touch press on the target is not a stick, a look drag, a tap or a hold; 
 
   // Released in place on the target it is the recognizer's tap and still no clean tap.
   host.dispatchEvent(touch("pointerdown", 2, left + 60, top + 120));
-  window.dispatchEvent(touch("pointerup", 2, left + 60, top + 120));
+  host.dispatchEvent(touch("pointerup", 2, left + 60, top + 120));
   expect(ends.map((end) => end.reason)).toEqual(["drag", "tap"]);
   expect(taps).toHaveLength(0);
 
   // Beside the target, in the same zone, the stick takes it as it always did.
   host.dispatchEvent(touch("pointerdown", 3, left + 150, top + 50));
   expect(ownership.ownerOf(3)).toMatch(/^joystick/);
-  window.dispatchEvent(touch("pointermove", 3, left + 190, top + 50));
+  host.dispatchEvent(touch("pointermove", 3, left + 190, top + 50));
   await waitFor(() => expect(view.getByTestId("floating-joystick")).toBeTruthy());
-  window.dispatchEvent(touch("pointerup", 3, left + 190, top + 50));
+  host.dispatchEvent(touch("pointerup", 3, left + 190, top + 50));
   expect(vectors.some((vector) => vector.magnitude > 0)).toBe(true);
   expect(presses).toHaveLength(2);
 
   // And a stationary press there is a clean tap.
   host.dispatchEvent(touch("pointerdown", 4, left + 150, top + 250));
-  window.dispatchEvent(touch("pointerup", 4, left + 150, top + 250));
+  host.dispatchEvent(touch("pointerup", 4, left + 150, top + 250));
   expect(taps).toHaveLength(1);
 });
 
