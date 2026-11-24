@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2](https://github.com/jbcom/input-joystick/compare/v0.9.1...v0.9.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** override vulnerable transitive docs-toolchain packages ([dfeedfb](https://github.com/jbcom/input-joystick/commit/dfeedfb739c3842ecbe1ba1c10ed8fe2f518d238))
+* **deps:** override vulnerable transitive docs-toolchain packages ([58db637](https://github.com/jbcom/input-joystick/commit/58db637009ab90375b78ce4417672494835bc0e0))
+
 ## [0.9.1](https://github.com/jbcom/input-joystick/compare/v0.9.0...v0.9.1) (2026-11-24)
 
 
