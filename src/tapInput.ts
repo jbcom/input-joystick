@@ -1,4 +1,5 @@
 import type { ClaimArea } from "./claimArea.js";
+import { isInteractiveTarget } from "./interactiveTarget.js";
 
 export interface TapInputOptions {
   element: HTMLElement;
@@ -15,9 +16,6 @@ export interface TapInput {
   /** Remove listeners and discard held candidates. Idempotent. */
   dispose(): void;
 }
-
-const controls =
-  "button,a,input,textarea,select,summary,[role='button'],[contenteditable]:not([contenteditable='false']),[data-joystick-ignore]";
 
 /** Observe tap intent without claiming pointers, capturing, preventing defaults or changing look. */
 export function createTapInput({
@@ -46,7 +44,7 @@ export function createTapInput({
   const reset = () => held.clear();
   const accepts = (event: PointerEvent) => {
     if (!element.isConnected) return false;
-    if ((event.target as Element | null)?.closest?.(controls)) return false;
+    if (isInteractiveTarget(event.target)) return false;
     const rect = element.getBoundingClientRect();
     return (
       rect.width > 0 &&

@@ -1,4 +1,5 @@
 import type { ClaimArea } from "./claimArea.js";
+import { isInteractiveTarget } from "./interactiveTarget.js";
 import { type PointerOwnership, pointerOwnership } from "./pointerOwnership.js";
 
 /** Angles in radians; yaw is deliberately unbounded. Renderer coordinates belong to the consumer. */
@@ -151,13 +152,7 @@ export function createLookInput({
     const acceptsPointer =
       event.pointerType === "touch" || (allowMouseDrag && event.pointerType === "mouse");
     if (drag || locked || !acceptsPointer || event.button !== 0) return;
-    const target = event.target as Element;
-    if (
-      target.closest(
-        "button,a,input,textarea,select,summary,[role='button'],[contenteditable]:not([contenteditable='false']),[data-joystick-ignore]"
-      )
-    )
-      return;
+    if (isInteractiveTarget(event.target)) return;
     const rect = element.getBoundingClientRect();
     if (
       event.clientX < rect.left ||
