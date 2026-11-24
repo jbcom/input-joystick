@@ -85,6 +85,9 @@ interface Contact {
   /** Where the press began, for the slop of a press on a control. */
   originX: number;
   originY: number;
+  /** The last position a waiting press was seen at within the slop, where a pinch starts from. */
+  seenX: number;
+  seenY: number;
   pointerType: string;
   /** The control the press began on, when `panFromControls` let it. */
   control: Element | null;
@@ -242,6 +245,8 @@ export function createCameraPanZoomInput({
       y: event.clientY,
       originX: event.clientX,
       originY: event.clientY,
+      seenX: event.clientX,
+      seenY: event.clientY,
       pointerType: event.pointerType,
       control,
       pending,
@@ -249,7 +254,13 @@ export function createCameraPanZoomInput({
     if (pending) return;
     live = true;
     // A second finger turns a press still waiting on a control into the pinch's first finger.
-    for (const [id, other] of contacts) if (other.pending) promote(id, other);
+    for (const [id, other] of contacts) {
+      if (!other.pending) continue;
+      // It stayed within the slop, so the pinch starts from where the finger actually is.
+      other.x = other.seenX;
+      other.y = other.seenY;
+      promote(id, other);
+    }
     event.preventDefault();
   };
   const onMove = (event: PointerEvent) => {
@@ -270,7 +281,12 @@ export function createCameraPanZoomInput({
         event.clientX - contact.originX,
         event.clientY - contact.originY
       );
-      if (!finite || travelled <= maxDistance || !promote(event.pointerId, contact)) return;
+      if (finite && travelled <= maxDistance) {
+        contact.seenX = event.clientX;
+        contact.seenY = event.clientY;
+        return;
+      }
+      if (!finite || !promote(event.pointerId, contact)) return;
     }
     event.preventDefault();
     if (!finite) return;

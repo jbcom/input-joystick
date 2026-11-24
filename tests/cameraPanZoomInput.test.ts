@@ -1000,3 +1000,22 @@ test("disposing disarms a pending click suppression", () => {
   expect(click(button).defaultPrevented).toBe(false);
   expect(clicked).toHaveBeenCalledTimes(1);
 });
+
+test("a second finger pinches from where the waiting press actually is, not where it began", () => {
+  const { button, element, changes } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 107, 100);
+  pointer(element, "pointerdown", 2, 140, 100);
+  pointer(win, "pointermove", 2, 150, 100);
+  expect(changes).toHaveLength(1);
+  expect(changes[0].source).toBe("pinch");
+  // Fingers at 107 and 140 became 107 and 150: a span of 33 became 43.
+  expect(changes[0].scale).toBeCloseTo(43 / 33, 10);
+});
+
+test("a waiting press that moved past the slop and then a finger down pans from its origin as before", () => {
+  const { button, changes } = controlSetup();
+  pointer(button, "pointerdown", 1, 100, 100);
+  pointer(win, "pointermove", 1, 120, 100);
+  expect(changes[0].pan).toEqual({ x: 20, y: 0 });
+});
